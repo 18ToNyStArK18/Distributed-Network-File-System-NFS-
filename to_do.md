@@ -1,0 +1,2 @@
+1. Initialise NS, fix the IP and port. Make sure to run on one laptop only as storage should be persistent. 
+2. Initialise SS, send list of files to NS. Implement the permissions part (either in NS or a different SS).
