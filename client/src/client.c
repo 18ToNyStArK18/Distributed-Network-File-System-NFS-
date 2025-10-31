@@ -36,7 +36,7 @@ int main(){
         //based on the command_type we need to send different packets to the NS
         if(strcmp(command_type,"VIEW")==0){
         //view packets
-
+            
         }
         else if(strcmp(command_type,"READ")==0){
         //Read a file
@@ -46,7 +46,8 @@ int main(){
         else if(strcmp(command_type,"CREATE")==0){
         //Create a file
         //the user/client who creates the file become the owner of the file
-
+            
+    
         }
         else if(strcmp(command_type,"INFO")==0){
         //For the INFO
