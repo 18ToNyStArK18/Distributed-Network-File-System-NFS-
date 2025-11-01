@@ -11,16 +11,24 @@
 
 // define the macros for the communication in tcp
 #define max_inp 1024
+#define max_username 1024
 
 #define RED "\x1b[31m"
 #define GREEN "\x1b[32m"
 #define NORMAL "\x1b[0m"
-
-
+#define NS_IP "0.0.0.0"
+#define NS_PORT 8080
+#define CLIENT_IP "127.0.0.1"
+#define CLIENT_PORT 12345
 
 
 int main(){
     char inp_cmd[max_inp];
+    char user_name[max_username];
+    printf(GREEN"Enter your user name: "NORMAL);
+    scanf("%s",user_name);
+    printf(GREEN"Logging in as :%s\n"NORMAL,user_name);
+    printf(GREEN"Enter quit to exit\n"GREEN);
     while(1){
         fgets(inp_cmd, max_inp-1, stdin);
         if(strcmp(inp_cmd,"quit")==0){
