@@ -8,10 +8,12 @@ void parsing(char *inp_cmd,command_str* command_struct){
     int inp_size = strlen(inp_cmd);
     int i = 0;
     while(i < inp_size){
-        while(inp_cmd[i]==' ')
+        while(i < inp_size && inp_cmd[i]==' ')
             i++;
         int start = i;
-        while(inp_cmd[i] != ' ')
+        if(i > inp_size || inp_cmd[i] == '\n' || inp_cmd[i] == '\0')
+            break;
+        while(i < inp_size && inp_cmd[i] != ' ')
             i++;
         strncpy(command_struct->cmd[command_struct->n],inp_cmd+start,i-start+1);
         command_struct->n++;
