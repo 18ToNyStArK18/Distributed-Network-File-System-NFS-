@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 #include "../inc/client_header.h"
-#include "../../Name_server/ip.h"
+#include "../../Name_server/inc/ip.h"
 
 // define the macros for the communication in tcp
 #define max_inp 1024
