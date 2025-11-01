@@ -14,6 +14,5 @@ typedef struct inp_command{
     int n; // num of arguments in a command
     char cmd[MAX_WORDS_IN_INP][MAX_WORD_SIZE]; // command split into individual arguments
 }command_str;
-
 void parsing(char * inp_cmd,command_str * command_struct);
 void print_parsed(command_str * command_struct);

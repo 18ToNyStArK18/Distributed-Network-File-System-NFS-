@@ -13,7 +13,7 @@ void parsing(char *inp_cmd,command_str* command_struct){
         int start = i;
         if(i > inp_size || inp_cmd[i] == '\n' || inp_cmd[i] == '\0')
             break;
-        while(i < inp_size && inp_cmd[i] != ' ')
+        while(i < inp_size && inp_cmd[i] != ' ' && inp_cmd[i] != '\n')
             i++;
         strncpy(command_struct->cmd[command_struct->n],inp_cmd+start,i-start+1);
         command_struct->n++;

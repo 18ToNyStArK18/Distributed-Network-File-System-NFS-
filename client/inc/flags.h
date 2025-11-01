@@ -1,3 +1,11 @@
+#include "client_header.h"
+
+typedef struct Packet{
+    int REQ_FLAG;
+    char req_cmd[MAX_WORDS_IN_INP*MAX_WORD_SIZE];
+}Packet_CS_NS;
+
+
 //create flags
 #define CREATE_REQ 1
 #define FILE_ALREADY_EXISTS 2
