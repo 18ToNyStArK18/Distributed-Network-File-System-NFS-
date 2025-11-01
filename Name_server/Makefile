@@ -8,7 +8,7 @@ OBJ_DIR = obj
 
 # Compiler and flags
 CC = gcc
-CFLAGS = -Wall -Wextra -I$(INC_DIR)
+CFLAGS = -Wall -Wextra -I$(INC_DIR) -lpthread
 
 # Source and object files
 SRC = $(wildcard $(SRC_DIR)/*.c)
