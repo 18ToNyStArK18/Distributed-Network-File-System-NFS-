@@ -44,8 +44,8 @@ int main(){
     char user_name[max_username];
     printf(GREEN"Enter your user name: "NORMAL);
     fgets(user_name,max_username,stdin);
-    printf(GREEN"Logging in as :%s\n"NORMAL,user_name);
-    printf(GREEN"Enter quit to exit\n"GREEN);
+    printf(GREEN"Logging in as :%s"NORMAL,user_name);
+    printf(GREEN"Enter quit to exit\n\n"GREEN);
 
 
     // the tcp socket connection for the client
@@ -79,6 +79,7 @@ int main(){
 
 
     while(1){
+        printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
         if(strcmp(inp_cmd,"quit\n")==0){
             printf(GREEN"Exiting\n"NORMAL);
@@ -120,48 +121,208 @@ int main(){
             }
             printf("Server says :%s\n",recv_buff);
         }
-        else if(strcmp(command_type,"READ")==0){
+        else if(strncmp(command_type,"READ",4)==0){
             //Read a file
             pkt.REQ_FLAG = READ_REQ_NS;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
 
         }
-        else if(strcmp(command_type,"CREATE")==0){
+        else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file
             //the user/client who creates the file become the owner of the file
             pkt.REQ_FLAG = CREATE_REQ;
-        }
-        else if(strcmp(command_type,"INFO")==0){
-            //For the INFO
-            pkt.REQ_FLAG = INFO;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
 
         }
-        else if(strcmp(command_type,"DELETE")==0){
+        else if(strncmp(command_type,"INFO",4)==0){
+            //For the INFO
+            pkt.REQ_FLAG = INFO;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
+        }
+        else if(strncmp(command_type,"DELETE",6)==0){
             //Deleing a file
             pkt.REQ_FLAG = INFO;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
-        else if(strcmp(command_type,"STREAM")==0){
+        else if(strncmp(command_type,"STREAM",6)==0){
             //Stream the file
             pkt.REQ_FLAG = STREAM;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
-        else if(strcmp(command_type,"ADDACCESS")==0){
+        else if(strncmp(command_type,"ADDACCESS",9)==0){
             //Adding access to users for read and write perms
             if(strcmp(parsed.cmd[1],"-R")==0)
                 pkt.REQ_FLAG = ADDACCESS_r;
             else
                 pkt.REQ_FLAG = ADDACCESS_w;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
-        else if(strcmp(command_type, "REMACCESS")==0){
+        else if(strncmp(command_type, "REMACCESS",9)==0){
             //Remove all the access
             pkt.REQ_FLAG = REMACCESS;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
-        else if(strcmp(command_type,"EXEC")==0){
+        else if(strncmp(command_type,"EXEC",4)==0){
             //execute the commands in that file
             pkt.REQ_FLAG = EXEC;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
-        else if(strcmp(command_type,"UNDO")==0){
+        else if(strncmp(command_type,"UNDO",4)==0){
             //undo the previous change in a file
             //if a user changes something we need to store the previous state when cmd is undo that buffer state will become the current state
             pkt.REQ_FLAG = UNDO;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
         }
         else{
             printf(RED"Unknown Command : %s\n"NORMAL,inp_cmd);
@@ -170,5 +331,4 @@ int main(){
     }
     close(client_socket);
     printf(GREEN"Connection closed.\n"NORMAL);
-
 }

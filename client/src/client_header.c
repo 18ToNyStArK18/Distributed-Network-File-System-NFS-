@@ -15,7 +15,7 @@ void parsing(char *inp_cmd,command_str* command_struct){
             break;
         while(i < inp_size && inp_cmd[i] != ' ' && inp_cmd[i] != '\n')
             i++;
-        strncpy(command_struct->cmd[command_struct->n],inp_cmd+start,i-start+1);
+        strncpy(command_struct->cmd[command_struct->n],inp_cmd+start,i-start);
         command_struct->n++;
     }
     return;

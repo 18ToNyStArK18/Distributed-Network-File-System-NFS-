@@ -20,7 +20,7 @@ int main() {
     struct sockaddr_in address, client_addr;
     socklen_t client_len = sizeof(client_addr);
     char buffer[1024] = {0};
-    char *msg = "NS: ACK - Command Received\n"; // A better default message
+    char *msg = "ACK - Command Received\n"; // A better default message
 
     // --- 1. Setup Socket ---
     // (Your socket, setsockopt, and bind code is correct)
