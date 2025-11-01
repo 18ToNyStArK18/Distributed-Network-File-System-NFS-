@@ -11,7 +11,6 @@ int main() {
     struct sockaddr_in address, client_addr, local_addr;
     socklen_t client_len = sizeof(client_addr);
     socklen_t local_len = sizeof(local_addr);
-    char buffer[1024] = {0};
     char *msg = "Hello from Storage server\n";
 
     /************** 1. Create server socket **************/
@@ -188,7 +187,7 @@ void* Handle_NS (void* arg) {
         char* cmd_string;
         Unpack(buffer, &flag, &cmd_string);
 
-        printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s", pthread_self(), NS_IP, cmd_string);
+        printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s", pthread_self(), NS_IP, flag, cmd_string);
     
         send(ns_fd, msg, strlen(msg), 0);  
         
