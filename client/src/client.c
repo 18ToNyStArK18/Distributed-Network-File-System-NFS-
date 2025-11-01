@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <assert.h>
 #include "../inc/client_header.h"
+#include "../../Name_server/ip.h"
 
 // define the macros for the communication in tcp
 #define max_inp 1024
@@ -16,8 +17,6 @@
 #define RED "\x1b[31m"
 #define GREEN "\x1b[32m"
 #define NORMAL "\x1b[0m"
-#define NS_IP "0.0.0.0"
-#define NS_PORT 8080
 #define CLIENT_IP "127.0.0.1"
 #define CLIENT_PORT 12345
 
