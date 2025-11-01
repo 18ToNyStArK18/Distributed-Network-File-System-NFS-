@@ -33,6 +33,4 @@ typedef struct Packet{
 #define UNDO 20
 
 //Write flags (need to think about the logic
-
-
-
+#define WRITE_REQ 21

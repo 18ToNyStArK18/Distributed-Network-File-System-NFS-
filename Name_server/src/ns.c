@@ -24,11 +24,10 @@ void* Handle_client(void* arg){
     int new_socket = args->client_socket;
     char client_ip[INET_ADDRSTRLEN];
     strcpy(client_ip, args->client_ip); // Make a local copy
-
+    char msg[MAX_WORDS_IN_INP * MAX_WORD_SIZE];
     free(args);
 
     char buffer[1024] = {0};
-    char *msg = "ACK - Command Received\n";
 
     while (1) {
         memset(buffer, 0, sizeof(buffer)); // Clear buffer for new packet
@@ -49,10 +48,70 @@ void* Handle_client(void* arg){
         uint32_t flag = -1;
         char * cmd_string;
         Unpack(buffer, &flag, &cmd_string);
-        // Added thread ID to the log
+        if(flag == VIEW){
+            //no need to send the packet to storage server
+            strcpy(msg,"ACK for the VIEW");
+        }
+        else if(flag == READ_REQ_NS){
+            //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
+            strcpy(msg,"ACK for the READ");
+
+        }
+        else if(flag == CREATE_REQ){
+            //we need to send a packet to the storage server so that it can create the files in that storege server
+            //we need to add that file in our ns database where we are storing the files present in a storage server
+            strcpy(msg,"ACK for the CREATE_REQ");
+
+        }
+        else if(flag == INFO){
+            //no need to send to the Storage server
+            //we will anyway store the data about the files and the users in the ns so just print int
+            strcpy(msg,"ACK for the INFO");
+
+        }
+        else if(flag == DELETE){
+            //need to send the packet to ss and then update it in the ns database
+            strcpy(msg,"ACK for the DELETE");
+
+        }
+        else if(flag == STREAM){
+            //I just need to send the ss ip and port to the client
+            strcpy(msg,"ACK for the STREAM");
+
+        }
+        else if(flag == ADDACCESS_r){
+            //change in the database directly and send the ack back
+            strcpy(msg,"ACK for the ADDACCESS_r");
+
+        }
+        else if(flag == ADDACCESS_w){
+            //same as prev
+            strcpy(msg,"ACK for the ADDACCESS_w");
+
+        }
+        else if(flag == REMACCESS){
+            //same as prev
+            strcpy(msg,"ACK for the REMACCESS");
+
+        }
+        else if(flag == EXEC){
+            //need to send the packet to the ss and the ss will send line by line and will be executed in the ns
+            strcpy(msg,"ACK for the EXEC");
+
+        }
+        else if(flag == UNDO){
+            // need to store somewhere which line is changed by the user and then change it back
+            strcpy(msg,"ACK for the UNDO");
+
+        }
+        else if(flag == WRITE_REQ){
+            // need to send the ip and the port of the ss to the client
+            strcpy(msg,"ACK for the WRITE_REQ");
+
+        }
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
 
-        send(new_socket, msg, strlen(msg), 0);
+        send(new_socket,msg, strlen(msg), 0);
     }
 
     printf("[Thread %ld] Connection with %s closed.\n", pthread_self(), client_ip);
@@ -65,7 +124,6 @@ int main() {
     struct sockaddr_in address, client_addr;
     socklen_t client_len = sizeof(client_addr);
     char buffer[1024] = {0};
-    char *msg = "ACK - Command Received\n"; // A better default message
 
     //setting up the socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {

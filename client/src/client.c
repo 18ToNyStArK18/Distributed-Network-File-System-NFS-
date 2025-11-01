@@ -324,6 +324,29 @@ int main(){
             printf("Server says :%s\n",recv_buff);
 
         }
+        else if(strncmp(command_type,"WRITE",5)==0){
+            //undo the previous change in a file
+            //if a user changes something we need to store the previous state when cmd is undo that buffer state will become the current state
+            pkt.REQ_FLAG = WRITE_REQ;
+            int bytes_to_send = Pack(&pkt,buffer);
+            
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            printf("Server says :%s\n",recv_buff);
+
+        }
         else{
             printf(RED"Unknown Command : %s\n"NORMAL,inp_cmd);
             continue;
