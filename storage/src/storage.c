@@ -1,11 +1,10 @@
 #include "../../Name_server/inc/ip.h"
 #include "../inc/storage.h"
+#include "../../client/inc/flags.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string);
+void* Handle_NS (void* arg);
+int Pack(Packet* pkt , char * buff);
 
 int main() {
     int server_fd, new_socket;
@@ -70,10 +69,35 @@ int main() {
     char reg_msg[64];
     snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d", my_ip, my_port);
 
-    send(ns_sock, reg_msg, strlen(reg_msg), 0);
-    printf("Sent registration to Name Server: %s\n", reg_msg);
+    Packet pkt;
+    memset(&pkt, 0 , sizeof(pkt));
+    strcpy(pkt.req_cmd, reg_msg);
+    pkt.REQ_FLAG = REG_SS;
 
+    char buffer[BUFFER_SIZE];
+    int bytes_to_send = Pack(&pkt, buffer);
+
+    send(ns_sock, buffer, bytes_to_send, 0);
+    printf("Sent registration to Name Server: %s\n", reg_msg);
+    char recv_buff[BUFFER_SIZE];
+    memset(recv_buff,0,BUFFER_SIZE);
+    if(recv(ns_sock,recv_buff,BUFFER_SIZE,0)< 0){
+        printf(RED"Error in recieving packet\n"NORMAL);
+        return 0;
+    }
+    printf("Server says: %s\n",recv_buff);
     close(ns_sock);
+
+    listen(server_fd, 10);
+    printf("[SS] Waiting for commands from NS.\n");
+
+    // to add here: multi threading b/w the NS and SS for Create, Delete, Execute
+    while (1) {
+        int ns_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+        pthread_t tid;
+        pthread_create(&tid, NULL, Handle_NS, (void*)(long)ns_fd);
+        pthread_detach(tid);
+    }
 
     /************** 5. Listen for incoming clients **************/
     if (listen(server_fd, 5) < 0) {
@@ -84,6 +108,7 @@ int main() {
 
     printf("Waiting for client...\n");
 
+    // to add here: multi threading b/w the client and SS for Read, Write, LiveStream
     memset(&client_addr, 0, sizeof(client_addr));
     new_socket = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
 
@@ -110,4 +135,74 @@ int main() {
     close(server_fd);
 
     return 0;
+}
+
+// pack the struct into a buffer so that i can send the pckt to the name server
+int Pack(Packet* pkt , char * buff) {
+    memset(buff, 0 ,BUFFER_SIZE);
+    char *ptr = buff;
+
+    uint32_t flag = htonl(pkt->REQ_FLAG);
+    memcpy(ptr,&flag,sizeof(uint32_t));
+
+    ptr += sizeof(uint32_t);
+
+    int cmd_len = strlen(pkt->req_cmd)+1;
+    memcpy(ptr,pkt->req_cmd,cmd_len);
+    
+    ptr += cmd_len;
+    return ptr - buff;
+}
+
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char *ptr = buffer;
+    
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net); // Convert back from Network Order
+    ptr += sizeof(uint32_t);
+    
+    *cmd_string = ptr; 
+}
+
+void* Handle_NS (void* arg) {
+    int ns_fd = (int)(long)arg;
+    char buffer[BUFFER_SIZE];
+    char *msg = "ACK - Command Received\n";
+
+    while(1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int r = recv(ns_fd, buffer, sizeof(buffer), 0);
+
+        if (r <= 0) {
+            if (r == 0) { 
+                printf("[Thread %ld] Name Server %s disconnected.\n", pthread_self(), NS_IP);
+            }
+            else { 
+                perror("[Thread] recv failed\n");
+            }
+            break;
+        }
+
+        uint32_t flag = -1;
+        char* cmd_string;
+        Unpack(buffer, &flag, &cmd_string);
+
+        printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s", pthread_self(), NS_IP, cmd_string);
+    
+        send(ns_fd, msg, strlen(msg), 0);  
+        
+        if (flag == CREATE_REQ) {
+            // create file
+        }
+        else if (flag == DELETE) {
+            // delete file
+        }
+        else if (flag == EXEC) {
+            // send contents of file line by line
+        }
+    }
+
+    close(ns_fd);
+    pthread_exit(NULL);
 }

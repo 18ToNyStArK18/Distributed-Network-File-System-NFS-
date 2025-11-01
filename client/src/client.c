@@ -23,7 +23,7 @@
 
 
 // pack the struct into a buffer so that i can send the pckt to the name server
-int Pack(Packet_CS_NS* pkt , char * buff){
+int Pack(Packet* pkt , char * buff){
     memset(buff, 0 ,BUFFER_SIZE);
     char *ptr = buff;
 
@@ -95,7 +95,7 @@ int main(){
         strcpy(command_type,parsed.cmd[0]);
 
 
-        Packet_CS_NS pkt;
+        Packet pkt;
         memset(&pkt,0,sizeof(pkt));
         strcpy(pkt.req_cmd,inp_cmd);
 

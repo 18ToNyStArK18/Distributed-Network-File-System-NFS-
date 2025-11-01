@@ -3,7 +3,7 @@
 typedef struct Packet{
     int REQ_FLAG;
     char req_cmd[MAX_WORDS_IN_INP*MAX_WORD_SIZE];
-}Packet_CS_NS;
+} Packet;
 
 
 //create flags
@@ -34,3 +34,6 @@ typedef struct Packet{
 
 //Write flags (need to think about the logic
 #define WRITE_REQ 21
+
+// Register storage ip and port
+#define REG_SS 22

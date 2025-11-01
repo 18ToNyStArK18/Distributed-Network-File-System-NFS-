@@ -109,6 +109,12 @@ void* Handle_client(void* arg){
             strcpy(msg,"ACK for the WRITE_REQ");
 
         }
+        else if (flag == REG_SS) { 
+            // need to store all the ips and ports of storage servers in a hash map
+            strcpy(msg,"ACK for the REG_SS");
+            
+        }
+
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
 
         send(new_socket,msg, strlen(msg), 0);
