@@ -1,6 +1,6 @@
 #include "../inc/ns.h"
 #include "../inc/ip.h"
-#include "../../client/inc/flags.h"
+#include "../../cmn_inc.h"
 #include <pthread.h>
 
 typedef struct{
@@ -120,7 +120,6 @@ void* Handle_client(void* arg){
         send(new_socket,msg, strlen(msg), 0);
     }
 
-    printf("[Thread %ld] Connection with %s closed.\n", pthread_self(), client_ip);
     close(new_socket);
     pthread_exit(NULL);
 }

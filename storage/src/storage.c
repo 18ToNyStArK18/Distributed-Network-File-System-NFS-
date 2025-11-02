@@ -1,6 +1,6 @@
-#include "../../Name_server/inc/ip.h"
+#include "../../name_server/inc/ip.h"
 #include "../inc/storage.h"
-#include "../../client/inc/flags.h"
+#include "../../cmn_inc.h"
 
 void Unpack(char* buffer, uint32_t* flag, char** cmd_string);
 void* Handle_NS (void* arg);
@@ -37,11 +37,8 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    char my_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &local_addr.sin_addr, my_ip, sizeof(my_ip));
     int my_port = ntohs(local_addr.sin_port);
 
-    printf("Storage Server running on %s:%d\n", my_ip, my_port);
 
     /************** 4. Register with Name Server **************/
     int ns_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -64,9 +61,18 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
+    struct sockaddr_in my_addr_for_ns;
+    socklen_t my_addr_len = sizeof(my_addr_for_ns);
+    if (getsockname(ns_sock, (struct sockaddr *)&my_addr_for_ns, &my_addr_len) < 0) {
+        perror("getsockname on ns_sock failed");
+        exit(EXIT_FAILURE);
+    }
+    char my_ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &my_addr_for_ns.sin_addr, my_ip, sizeof(my_ip));
     // format: "REGISTER <ip> <port>"
     char reg_msg[64];
-    snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d", my_ip, my_port);
+    printf("Storage Server running on %s:%d\n", my_ip, my_port);
+    snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d\n", my_ip, my_port);
 
     Packet pkt;
     memset(&pkt, 0 , sizeof(pkt));

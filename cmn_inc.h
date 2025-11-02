@@ -1,4 +1,4 @@
-#include "client_header.h"
+#include "client/inc/client_funcs.h"
 
 typedef struct Packet{
     int REQ_FLAG;

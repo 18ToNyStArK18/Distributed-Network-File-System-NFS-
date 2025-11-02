@@ -1,4 +1,4 @@
-#include "../inc/client_header.h"
+#include "../inc/client_funcs.h"
 
 void parsing(char *inp_cmd,command_str* command_struct){
     // initializing the command_struct
