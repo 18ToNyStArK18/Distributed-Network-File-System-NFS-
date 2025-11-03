@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +38,16 @@ int Pack(Packet* pkt , char * buff){
     
     ptr += cmd_len;
     return ptr - buff;
+}
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char *ptr = buffer;
+    
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net); // Convert back from Network Order
+    ptr += sizeof(uint32_t);
+    
+    *cmd_string = ptr; 
 }
 
 int main(){
@@ -115,17 +126,34 @@ int main(){
             //response from the Name_server
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff,0,BUFFER_SIZE);
+            uint32_t flag = -1;
+            char *cmd_string;
             if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Fail){
+                printf(RED"Command failed\n"NORMAL);
+                continue;
+            }
+            assert(flag == Success);
+            while(1){
+                if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                    printf(RED"Error in recieving packet\n"NORMAL);
+                    continue;
+                }   
+                Unpack(recv_buff,&flag,&cmd_string);
+                if(flag != VIEW_DATA)
+                    break;
+                printf("%s\n",cmd_string);
+            }
         }
         else if(strncmp(command_type,"READ",4)==0){
             //Read a file
             pkt.REQ_FLAG = READ_REQ_NS;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -140,7 +168,20 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            uint32_t flag =1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == FILE_DOESNT_EXIST){
+                printf(RED"FILE_DOESNT_EXIST\n"NORMAL);
+                continue;
+            }
+            //if file exists i will the get the packet with the storage server ip and port
+            assert(flag == Success);
+            char ss_ip[40];
+            int port;
+            sscanf(cmd_string,"%s %d",ss_ip,&port);
+            //now i have the port and the ip of the storage server where the file is located now i need to req to that server
+            //new connection logic
 
         }
         else if(strncmp(command_type,"CREATE",6)==0){
@@ -148,7 +189,7 @@ int main(){
             //the user/client who creates the file become the owner of the file
             pkt.REQ_FLAG = CREATE_REQ;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -163,14 +204,25 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Success){
+                printf(GREEN"File created Successfully\n"NORMAL);
+            }
+            else if(flag == FILE_ALREADY_EXISTS){
+                printf(RED"File with the same name already exists\n"NORMAL);
+            }
+            else {
+                printf(RED"File is not creted\n"NORMAL);
+            }
 
         }
         else if(strncmp(command_type,"INFO",4)==0){
             //For the INFO
             pkt.REQ_FLAG = INFO;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -185,14 +237,32 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Fail){
+                printf(RED"Command Failed\n"NORMAL);
+                continue;
+            }
+            assert(flag == Success);
+            while(1){
+                if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                    printf(RED"Error in recieving packet\n"NORMAL);
+                    continue;
+                }   
+                Unpack(recv_buff,&flag,&cmd_string);
+                if(flag == INFO_END)
+                    break;
+                else
+                 printf("%s",cmd_string);
+            }
 
         }
         else if(strncmp(command_type,"DELETE",6)==0){
             //Deleing a file
             pkt.REQ_FLAG = INFO;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -207,14 +277,25 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
-
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == FILE_DOESNT_EXIST){
+                printf(RED"Requested file does not exist\n"NORMAL);
+                continue;
+            }
+            else if(flag == Fail){
+                printf(RED"Command Failed\n"NORMAL);
+                continue;
+            }
+            assert(flag == Success);
+            printf(GREEN"File deletion Success\n"NORMAL);
         }
         else if(strncmp(command_type,"STREAM",6)==0){
             //Stream the file
             pkt.REQ_FLAG = STREAM;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -229,7 +310,21 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            uint32_t flag =1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == FILE_DOESNT_EXIST){
+                printf(RED"FILE_DOESNT_EXIST\n"NORMAL);
+                continue;
+            }
+            //if file exists i will the get the packet with the storage server ip and port
+            assert(flag == Success);
+            char ss_ip[40];
+            int port;
+            sscanf(cmd_string,"%s %d",ss_ip,&port);
+            //now i have the port and the ip of the storage server where the file is located now i need to req to that server
+            //new connection logic
+
 
         }
         else if(strncmp(command_type,"ADDACCESS",9)==0){
@@ -239,7 +334,7 @@ int main(){
             else
                 pkt.REQ_FLAG = ADDACCESS_w;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -254,14 +349,19 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
-
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Success)
+                printf(GREEN"Added access Successfully\n"NORMAL);
+            else
+                printf(RED"Command Failed\n"NORMAL);
         }
         else if(strncmp(command_type, "REMACCESS",9)==0){
             //Remove all the access
             pkt.REQ_FLAG = REMACCESS;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -276,14 +376,19 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
-
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Success)
+                printf(GREEN"Removed access Successfully\n"NORMAL);
+            else
+                printf(RED"Command Failed\n"NORMAL);
         }
         else if(strncmp(command_type,"EXEC",4)==0){
             //execute the commands in that file
             pkt.REQ_FLAG = EXEC;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -298,7 +403,13 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            printf("Server says :%s\n",recv_buff);
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Success)
+                printf(GREEN"Executed the file Successfully\n"NORMAL);
+            else
+                printf(RED"Command Failed\n"NORMAL);
 
         }
         else if(strncmp(command_type,"UNDO",4)==0){
@@ -306,7 +417,7 @@ int main(){
             //if a user changes something we need to store the previous state when cmd is undo that buffer state will become the current state
             pkt.REQ_FLAG = UNDO;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -322,6 +433,13 @@ int main(){
                 continue;
             }
             printf("Server says :%s\n",recv_buff);
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Success)
+                printf(GREEN"Undo Executed Successfully\n"NORMAL);
+            else
+                printf(RED"Command Failed\n"NORMAL);
 
         }
         else if(strncmp(command_type,"WRITE",5)==0){
@@ -329,7 +447,7 @@ int main(){
             //if a user changes something we need to store the previous state when cmd is undo that buffer state will become the current state
             pkt.REQ_FLAG = WRITE_REQ;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
