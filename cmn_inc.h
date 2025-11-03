@@ -13,9 +13,9 @@ typedef struct Packet{
 //Read flags
 #define READ_REQ_NS 4
 #define READ_REQ_SS 5
+#define READ_DATA 51
+#define READ_END 52
 #define FILE_DOESNT_EXIST 6
-#define READ_NS_FAIL 9
-#define READ_SS_FAIL 10
 
 //some basic flags
 #define VIEW 11
@@ -26,6 +26,8 @@ typedef struct Packet{
 #define INFO_END 122
 #define DELETE 13
 #define STREAM 14
+#define STREAM_DATA 141
+#define STREAM_END 142
 #define LIST 15
 #define ADDACCESS_r 16
 #define ADDACCESS_w 17
@@ -35,6 +37,8 @@ typedef struct Packet{
 
 //Write flags (need to think about the logic
 #define WRITE_REQ 21
+#define WRITE_DATA 211
+#define WRITE_END 212
 
 // Register storage ip and port
 #define REG_SS 22
