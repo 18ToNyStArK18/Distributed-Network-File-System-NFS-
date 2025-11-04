@@ -104,7 +104,7 @@ int main(){
         exit(-1);
     }
     assert(username_flag == Success);*/
-    printf(GREEN"Successfully registered the username of the client\n Server Says: %s"NORMAL,buffer);
+    printf(GREEN"Successfully registered the username of the client\n Server Says: %s\n"NORMAL,buffer);
     while(1){
         printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
@@ -238,7 +238,7 @@ int main(){
             sscanf(recv_buff,"%s %d",ss_ip,&port);
             //now i have the port and the ip of the storage server where the file is located now i need to req to that server
             //new connection logic
-            close(client_socket);
+            //close(client_socket);
             int ss_socket = socket(AF_INET, SOCK_STREAM, 0);
             assert(ss_socket >= 0);
             memset(&server_addr,0,sizeof(server_addr));
@@ -261,7 +261,7 @@ int main(){
             }
             uint32_t flag = -1;
             char *cmd_string;
-            printf(GREEN"Successfully connected to Name Server!\n"NORMAL);
+            printf(GREEN"Successfully connected to Storage Server!\n"NORMAL);
             Packet pkt;
             pkt.REQ_FLAG = READ_REQ_SS;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
@@ -278,6 +278,8 @@ int main(){
                 else
                     printf("%s",cmd_string);
             }
+            printf("Reading the file is done\n");
+            close(ss_socket);
         }
         else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file

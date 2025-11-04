@@ -312,7 +312,7 @@ void* Handle_Client (void* arg) {
             char signal_end[BUFFER_SIZE];
             int bytes = Pack(&end, signal_end);
             send(new_socket, signal_end, bytes, 0);
-
+            printf("Sent the end packet\n");
         }
         else if (flag == WRITE_REQ) {
             // write file
