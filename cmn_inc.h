@@ -42,6 +42,7 @@ typedef struct Packet{
 
 // Register storage ip and port
 #define REG_SS 22
+#define USER_REG 23
 
 #define Success 67
 #define Fail 69

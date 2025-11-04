@@ -57,15 +57,12 @@ int main(){
     fgets(user_name,max_username,stdin);
     printf(GREEN"Logging in as :%s"NORMAL,user_name);
     printf(GREEN"Enter quit to exit\n\n"GREEN);
-
-
     // the tcp socket connection for the client
     int client_socket;
     struct sockaddr_in server_addr;       
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
     assert(client_socket >= 0);
-    char buffer[BUFFER_SIZE];
-
+    char buffer[BUFFER_SIZE];    
     // server_addr
     memset(&server_addr,0,sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -78,7 +75,6 @@ int main(){
         exit(1);
     }
     // got the server ip in the req format
-
     //conneting to the server
     if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         printf(RED"Failed to connect to %s:%d\n"NORMAL, NS_IP, NS_PORT);
@@ -87,8 +83,28 @@ int main(){
         exit(1);
     }
     printf(GREEN"Successfully connected to Name Server!\n"NORMAL);
+    //send the username to the ns server
+    Packet username;
+    username.REQ_FLAG = USER_REG;
+    strcpy(username.req_cmd,user_name);
 
-
+    int bytes_to_send =  Pack(&username,buffer);
+    if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+        printf(RED"Unable to send the username to the server\n"NORMAL);
+        exit(0);
+    }
+    uint32_t username_flag;
+    char *username_buffer;
+    if(recv(client_socket,buffer,BUFFER_SIZE,0)< 0){
+        printf(RED"Error in recieving packet\n"NORMAL);
+    }
+    Unpack(buffer,&username_flag,&username_buffer);
+    if(username_flag == Fail){
+        printf(RED"This username is already logged in please logout from that device to login again"NORMAL);
+        exit(-1);
+    }
+    assert(username_flag == Success);
+    printf(GREEN"Successfully registered the username of the client\n"NORMAL);
     while(1){
         printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
@@ -96,7 +112,7 @@ int main(){
             printf(GREEN"Exiting\n"NORMAL);
             return 0;
         }
-        
+
 
         command_str parsed;
         parsing(inp_cmd,&parsed);
@@ -111,11 +127,50 @@ int main(){
         strcpy(pkt.req_cmd,inp_cmd);
 
         //based on the command_type we need to send  packets with the different flags to the NS
-        if(strncmp(command_type,"VIEW",4)==0){
+        if(strncmp(command_type,"LIST",4)==0){
+            //list 
+            pkt.REQ_FLAG = LIST;
+            int bytes_to_send = Pack(&pkt,buffer);
+
+            //send the packet to the Name_server
+
+            if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            //response from the Name_server
+            char recv_buff[BUFFER_SIZE];
+            memset(recv_buff,0,BUFFER_SIZE);
+            uint32_t flag = -1;
+            char *cmd_string;
+            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                printf(RED"Error in recieving packet\n"NORMAL);
+                continue;
+            }
+            Unpack(recv_buff,&flag,&cmd_string);
+            if(flag == Fail){
+                printf(RED"Command failed\n"NORMAL);
+                continue;
+            }
+            assert(flag == Success);
+            while(1){
+                if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                    printf(RED"Error in recieving packet\n"NORMAL);
+                    continue;
+                }   
+                Unpack(recv_buff,&flag,&cmd_string);
+                if(flag != VIEW_DATA)
+                    break;
+                printf("%s\n",cmd_string);
+            }
+
+        }
+        else if(strncmp(command_type,"VIEW",4)==0){
             //view 
             pkt.REQ_FLAG = VIEW;
             int bytes_to_send = Pack(&pkt,buffer);
-            
+
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
@@ -254,7 +309,7 @@ int main(){
                 if(flag == INFO_END)
                     break;
                 else
-                 printf("%s",cmd_string);
+                    printf("%s",cmd_string);
             }
 
         }
