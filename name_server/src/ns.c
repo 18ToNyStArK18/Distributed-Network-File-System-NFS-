@@ -5,7 +5,7 @@
 
 #define BUFFER_SIZE 1024
 
-int ns_port, client_port;
+int ns_port, client_port; // ns_port is for ss and ns connection, client_port is for client and ss connection
 char ss_ip[40];
 
 void* Client_listener_thread (void *arg);

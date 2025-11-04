@@ -285,7 +285,34 @@ void* Handle_Client (void* arg) {
         send(new_socket, msg, strlen(msg), 0);  
         
         if (flag == READ_REQ_SS) {
-            // read file
+            FILE* fp = fopen(filename, "r");
+            if (fp == NULL) {
+                perror("Error opening file");
+                continue;
+            }
+            char read_buffer[BUFFER_SIZE];
+            size_t bytesRead;
+
+            while ((bytesRead = fread(read_buffer, 1, BUFFER_SIZE, fp)) > 0) { 
+                Packet pkt;
+                memset(&pkt, 0 , sizeof(pkt));
+                strncpy(pkt.req_cmd, read_buffer, sizeof(pkt.req_cmd)-1);
+                pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
+                pkt.REQ_FLAG = READ_DATA;
+
+                char send_data[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt, send_data);
+
+                send(new_socket, send_data, bytes_to_send, 0);
+            }
+
+            Packet end;
+            memset(&end, 0, sizoef(end));
+            end.REQ_FLAG = READ_END;
+            char signal_end[BUFFER_SIZE];
+            int bytes = Pack(&end, signal_end);
+            send(new_socket, signal_end, bytes, 0);
+
         }
         else if (flag == WRITE_REQ) {
             // write file
