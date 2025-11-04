@@ -272,6 +272,26 @@ void* Handle_NS (void* arg) {
         }
         else if (flag == DELETE) {
             // delete file
+            printf("Recived the delete cmd req\n");
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            pthread_mutex_lock(&FILES_C_AND_W);
+            int send_flag = -1;
+            if(remove(filename)==0){
+                send_flag = Success;
+            }
+            else {
+                send_flag = FILE_DOESNT_EXIST;
+            }
+            pthread_mutex_unlock(&FILES_C_AND_W);
+            char temp_buffer[BUFFER_SIZE];
+            temp_buffer[0]='\0';
+            Packet pkt;
+            pkt.REQ_FLAG = send_flag;
+            int bytes_to_send = Pack(&pkt,temp_buffer);
+            if(send(ns_fd,temp_buffer,bytes_to_send,0) < 0){
+                printf(RED"ERROR in sending the ack\n"NORMAL);
+            }
         }
         else if (flag == EXEC) {
             // send contents of file line by line

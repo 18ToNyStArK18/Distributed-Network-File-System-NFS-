@@ -337,7 +337,8 @@ int main(){
         }
         else if(strncmp(command_type,"DELETE",6)==0){
             //Deleing a file
-            pkt.REQ_FLAG = INFO;
+            pkt.REQ_FLAG = DELETE;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes_to_send = Pack(&pkt,buffer);
 
             //send the packet to the Name_server

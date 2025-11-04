@@ -40,6 +40,7 @@ int send_to_SS(char *buff,char *ss_ip,int ss_port,int size){
     char *cmd_str;
 
     Unpack(recv_buffer,&flag,&cmd_str);
+    close(ss_sock);
     if(flag == Success)
         return 0;
     else

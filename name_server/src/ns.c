@@ -111,6 +111,17 @@ void* Handle_client(void* arg){
         else if(flag == DELETE){
             //need to send the packet to ss and then update it in the ns database
             strcpy(msg,"ACK for the DELETE");
+            printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
+            printf("Sending the packet to the ss\n");
+            int a = send_to_SS(buffer,ss_ip,ns_port,bytes);
+            printf("Sending the ack to the client\n");
+            Packet pkt;
+            pkt.REQ_FLAG = a==0 ? Success : FILE_DOESNT_EXIST;
+            int bytes_to_send = Pack(&pkt,buffer);
+            if(send(new_socket,buffer,bytes_to_send,0)<0){
+                printf("send the ack to the client is failed\n");
+                continue;
+            }
 
         }
         else if(flag == STREAM){
