@@ -4,7 +4,7 @@ typedef struct Packet{
     int REQ_FLAG;
     char req_cmd[MAX_WORDS_IN_INP*MAX_WORD_SIZE];
 } Packet;
-
+int Pack(Packet* pkt , char * buff);
 
 //create flags
 #define CREATE_REQ 1

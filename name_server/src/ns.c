@@ -56,13 +56,16 @@ void* Handle_client(void* arg){
         uint32_t flag = -1;
         char * cmd_string;
         Unpack(buffer, &flag, &cmd_string);
+        if(flag == USER_REG){ 
+            strcpy(msg,"ACK fo the user");
+        }
         if(flag == VIEW){
             //no need to send the packet to storage server
             strcpy(msg,"ACK for the VIEW");
         }
         else if(flag == READ_REQ_NS){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
-            strcpy(msg,"ACK for the READ");
+            sprintf(msg,"%s %d",ss_ip,client_port);           
 
         }
         else if(flag == CREATE_REQ){

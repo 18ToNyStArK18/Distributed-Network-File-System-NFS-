@@ -98,13 +98,13 @@ int main(){
     if(recv(client_socket,buffer,BUFFER_SIZE,0)< 0){
         printf(RED"Error in recieving packet\n"NORMAL);
     }
-    Unpack(buffer,&username_flag,&username_buffer);
+    /*Unpack(buffer,&username_flag,&username_buffer);
     if(username_flag == Fail){
         printf(RED"This username is already logged in please logout from that device to login again"NORMAL);
         exit(-1);
     }
-    assert(username_flag == Success);
-    printf(GREEN"Successfully registered the username of the client\n"NORMAL);
+    assert(username_flag == Success);*/
+    printf(GREEN"Successfully registered the username of the client\n Server Says: %s"NORMAL,buffer);
     while(1){
         printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
@@ -223,7 +223,7 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            uint32_t flag =1;
+            /*uint32_t flag =1;
             char *cmd_string;
             Unpack(recv_buff,&flag,&cmd_string);
             if(flag == FILE_DOESNT_EXIST){
@@ -232,12 +232,52 @@ int main(){
             }
             //if file exists i will the get the packet with the storage server ip and port
             assert(flag == Success);
+            */
             char ss_ip[40];
             int port;
-            sscanf(cmd_string,"%s %d",ss_ip,&port);
+            sscanf(recv_buff,"%s %d",ss_ip,&port);
             //now i have the port and the ip of the storage server where the file is located now i need to req to that server
             //new connection logic
+            close(client_socket);
+            int ss_socket = socket(AF_INET, SOCK_STREAM, 0);
+            assert(ss_socket >= 0);
+            memset(&server_addr,0,sizeof(server_addr));
+            server_addr.sin_family = AF_INET;
+            server_addr.sin_port = htons(port);
 
+            if(inet_pton(AF_INET,ss_ip,&server_addr.sin_addr) <= 0){
+                printf(RED"Invalid address: %s\n"NORMAL, NS_IP);
+                perror("inet_pton failed");
+                close(client_socket);
+                exit(1);
+            }
+            // got the server ip in the req format
+            //conneting to the server
+            if (connect(ss_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+                printf(RED"Failed to connect to %s:%d\n"NORMAL, NS_IP, NS_PORT);
+                perror("ERROR connecting");
+                close(client_socket);
+                exit(1);
+            }
+            uint32_t flag = -1;
+            char *cmd_string;
+            printf(GREEN"Successfully connected to Name Server!\n"NORMAL);
+            Packet pkt;
+            pkt.REQ_FLAG = READ_REQ_SS;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
+            int bytes = Pack(&pkt,buffer);
+            send(ss_socket,buffer,bytes,0);
+            while(1){
+                if(recv(ss_socket,recv_buff,BUFFER_SIZE,0)< 0){
+                    printf(RED"Error in recieving packet\n"NORMAL);
+                    continue;
+                }   
+                Unpack(recv_buff,&flag,&cmd_string);
+                if(flag == READ_END)
+                    break;
+                else
+                    printf("%s",cmd_string);
+            }
         }
         else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file
