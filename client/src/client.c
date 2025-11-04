@@ -1,29 +1,8 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <assert.h>
-#include <arpa/inet.h>
+
 #include "../../cmn_inc.h"
 #include "../../name_server/inc/ip.h"
 
 // define the macros for the communication in tcp
-#define max_inp 1024
-#define max_username 1024
-
-#define RED "\x1b[31m"
-#define GREEN "\x1b[32m"
-#define NORMAL "\x1b[0m"
-#define BUFFER_SIZE 1024
-
-
-// pack the struct into a buffer so that i can send the pckt to the name server
 int Pack(Packet* pkt , char * buff){
     memset(buff, 0 ,BUFFER_SIZE);
     char *ptr = buff;
@@ -93,12 +72,12 @@ int main(){
         printf(RED"Unable to send the username to the server\n"NORMAL);
         exit(0);
     }
-    uint32_t username_flag;
+    /*uint32_t username_flag;
     char *username_buffer;
     if(recv(client_socket,buffer,BUFFER_SIZE,0)< 0){
         printf(RED"Error in recieving packet\n"NORMAL);
     }
-    /*Unpack(buffer,&username_flag,&username_buffer);
+    Unpack(buffer,&username_flag,&username_buffer);
     if(username_flag == Fail){
         printf(RED"This username is already logged in please logout from that device to login again"NORMAL);
         exit(-1);
@@ -285,6 +264,7 @@ int main(){
             //Create a file
             //the user/client who creates the file become the owner of the file
             pkt.REQ_FLAG = CREATE_REQ;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes_to_send = Pack(&pkt,buffer);
 
             //send the packet to the Name_server

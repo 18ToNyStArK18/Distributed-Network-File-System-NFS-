@@ -44,5 +44,7 @@ int Pack(Packet* pkt , char * buff);
 #define REG_SS 22
 #define USER_REG 23
 
+
+#define MAX_FILE_NAME_SIZE 1024
 #define Success 67
 #define Fail 69

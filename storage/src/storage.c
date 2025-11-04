@@ -1,14 +1,40 @@
 #include "../../name_server/inc/ip.h"
 #include "../inc/storage.h"
 #include "../../cmn_inc.h"
-
-void Unpack (char* buffer, uint32_t* flag, char** cmd_string);
+#include <pthread.h>
+#include <time.h>
+#include <assert.h>
 void* NS_listener_thread (void *arg);
 void* Client_listener_thread (void *arg);
 void* Handle_NS (void* arg);
 void* Handle_Client (void* arg);
-int Pack (Packet* pkt , char * buff);
+int Pack(Packet* pkt , char * buff) {
+    memset(buff, 0 ,BUFFER_SIZE);
+    char *ptr = buff;
 
+    uint32_t flag = htonl(pkt->REQ_FLAG);
+    memcpy(ptr,&flag,sizeof(uint32_t));
+
+    ptr += sizeof(uint32_t);
+
+    int cmd_len = strlen(pkt->req_cmd)+1;
+    memcpy(ptr,pkt->req_cmd,cmd_len);
+    
+    ptr += cmd_len;
+    return ptr - buff;
+}
+
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char *ptr = buffer;
+    
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net); // Convert back from Network Order
+    ptr += sizeof(uint32_t);
+    
+    *cmd_string = ptr; 
+}
+pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
 int main() {
     int server_fd, client_fd;
     struct sockaddr_in ns_addr, client_addr;
@@ -145,32 +171,7 @@ int main() {
 }
 
 // pack the struct into a buffer so that i can send the pckt to the name server
-int Pack(Packet* pkt , char * buff) {
-    memset(buff, 0 ,BUFFER_SIZE);
-    char *ptr = buff;
 
-    uint32_t flag = htonl(pkt->REQ_FLAG);
-    memcpy(ptr,&flag,sizeof(uint32_t));
-
-    ptr += sizeof(uint32_t);
-
-    int cmd_len = strlen(pkt->req_cmd)+1;
-    memcpy(ptr,pkt->req_cmd,cmd_len);
-    
-    ptr += cmd_len;
-    return ptr - buff;
-}
-
-void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
-    char *ptr = buffer;
-    
-    uint32_t flag_net;
-    memcpy(&flag_net, ptr, sizeof(uint32_t));
-    *flag = ntohl(flag_net); // Convert back from Network Order
-    ptr += sizeof(uint32_t);
-    
-    *cmd_string = ptr; 
-}
 
 void* NS_listener_thread(void *arg) {
     int ns_listen_fd = *(int*)arg;
@@ -234,12 +235,40 @@ void* Handle_NS (void* arg) {
         char* cmd_string;
         Unpack(buffer, &flag, &cmd_string);
 
-        printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s", pthread_self(), NS_IP, flag, cmd_string);
+        printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s\n", pthread_self(), NS_IP, flag, cmd_string);
     
-        send(ns_fd, msg, strlen(msg), 0);  
         
         if (flag == CREATE_REQ) {
             // create file
+            printf("Recived the create cmd req\n");
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            pthread_mutex_lock(&FILES_C_AND_W);
+            FILE *fp;
+            int send_flag = -1;
+            //need to check whether the file with the same name exists already
+            fp=fopen(filename,"r");
+            if(fp != NULL){
+                send_flag = FILE_ALREADY_EXISTS;
+                fclose(fp);
+                pthread_mutex_unlock(&FILES_C_AND_W);
+            }
+            else{
+                //file doesnt exists so i will create that file
+                fp = fopen(filename,"w");
+                assert(fp != NULL);
+                send_flag = Success;
+                pthread_mutex_unlock(&FILES_C_AND_W);
+            }
+            char temp_buffer[BUFFER_SIZE];
+            temp_buffer[0]='\0';
+            Packet pkt;
+            pkt.REQ_FLAG = send_flag;
+            int bytes_to_send = Pack(&pkt,temp_buffer);
+            if(send(ns_fd,temp_buffer,bytes_to_send,0) < 0){
+                printf(RED"ERROR in sending the ack\n"NORMAL);
+            }
+
         }
         else if (flag == DELETE) {
             // delete file
@@ -281,8 +310,8 @@ void* Handle_Client (void* arg) {
         Unpack(buffer, &flag, &filename); // client sends the filename in place of cmd_string as we know what cmd it is by the flag
 
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, filename);
-    
-        
+
+
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
             if (fp == NULL) {
@@ -299,7 +328,7 @@ void* Handle_Client (void* arg) {
                 strncpy(pkt.req_cmd, read_buffer, sizeof(pkt.req_cmd)-1);
                 pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
                 pkt.REQ_FLAG = READ_DATA;
-
+                printf("%s\n",pkt.req_cmd);
                 char send_data[BUFFER_SIZE];
                 int bytes_to_send = Pack(&pkt, send_data);
 

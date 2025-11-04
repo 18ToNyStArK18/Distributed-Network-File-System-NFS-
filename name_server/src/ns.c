@@ -15,9 +15,9 @@ void* Handle_storage_server(void* arg);
 
 typedef struct{
     int client_socket;
+    int storage_socket;
     char client_ip[INET_ADDRSTRLEN];
 } client_args_t;
-
 void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
     char *ptr = buffer;
     
@@ -28,7 +28,21 @@ void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
     
     *cmd_string = ptr; 
 }
+int Pack(Packet* pkt , char * buff){
+    memset(buff, 0 ,BUFFER_SIZE);
+    char *ptr = buff;
 
+    uint32_t flag = htonl(pkt->REQ_FLAG);
+    memcpy(ptr,&flag,sizeof(uint32_t));
+
+    ptr += sizeof(uint32_t);
+
+    int cmd_len = strlen(pkt->req_cmd)+1;
+    memcpy(ptr,pkt->req_cmd,cmd_len);
+    
+    ptr += cmd_len;
+    return ptr - buff;
+}
 void* Handle_client(void* arg){
     client_args_t* args = (client_args_t*)arg;
     int new_socket = args->client_socket;
@@ -74,6 +88,18 @@ void* Handle_client(void* arg){
             //we need to send a packet to the storage server so that it can create the files in that storege server
             //we need to add that file in our ns database where we are storing the files present in a storage server
             strcpy(msg,"ACK for the CREATE_REQ");
+            //need to send the same buffer to the storage server with the ss_ip and ns_port
+            printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
+            printf("Sending the packet to the ss\n");
+            int a = send_to_SS(buffer,ss_ip,ns_port,bytes);
+            printf("Sending the ack to the client\n");
+            Packet pkt;
+            pkt.REQ_FLAG = a==0 ? Success : FILE_ALREADY_EXISTS;
+            int bytes_to_send = Pack(&pkt,buffer);
+            if(send(new_socket,buffer,bytes_to_send,0)<0){
+                printf("send the ack to the client is failed\n");
+                continue;
+            }
 
         }
         else if(flag == INFO){
@@ -125,12 +151,11 @@ void* Handle_client(void* arg){
         else if (flag == REG_SS) { 
             // need to store all the ips and ports of storage servers in a hash map
             strcpy(msg,"ACK for the REG_SS");
-            
+
         }
 
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
 
-        send(new_socket,msg, strlen(msg), 0);
+        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
     }
 
     close(new_socket);
@@ -193,7 +218,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    
+
     if (listen(storage_fd, 20) < 0) {
         perror("listen failed");
         close(storage_fd);
@@ -256,34 +281,34 @@ void* Client_listener_thread (void *arg) {
 }
 
 /*void* Storage_listener_thread (void *arg) {
-    int ss_fd = *(int *)arg;
-    struct sockaddr_in ss_addr;
-    socklen_t ss_len = sizeof(ss_addr);
-    char buffer[BUFFER_SIZE];
-    char *msg = "ACK - Command Received\n";
+  int ss_fd = *(int *)arg;
+  struct sockaddr_in ss_addr;
+  socklen_t ss_len = sizeof(ss_addr);
+  char buffer[BUFFER_SIZE];
+  char *msg = "ACK - Command Received\n";
 
-    while(1) {
-        int new_ss_socket = accept(ss_fd,(struct sockaddr *)&ss_addr,&ss_len);
-        assert(new_ss_socket >=0);
-        int r = recv(ss_fd, buffer, sizeof(buffer), 0);
-        uint32_t flag =-1;
-        char *cmd_string;
-        Unpack(buffer,&flag,&cmd_string);
-        if (r <= 0) {
-            if (r == 0) { 
-                printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), NS_IP);
-            }
-            else { 
-                perror("[Thread] storage recv failed\n");
-            }
-            break;
-        }
+  while(1) {
+  int new_ss_socket = accept(ss_fd,(struct sockaddr *)&ss_addr,&ss_len);
+  assert(new_ss_socket >=0);
+  int r = recv(ss_fd, buffer, sizeof(buffer), 0);
+  uint32_t flag =-1;
+  char *cmd_string;
+  Unpack(buffer,&flag,&cmd_string);
+  if (r <= 0) {
+  if (r == 0) { 
+  printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), NS_IP);
+  }
+  else { 
+  perror("[Thread] storage recv failed\n");
+  }
+  break;
+  }
 
-        sscanf(cmd_string, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
-        printf("%s\n",cmd_string);
-        close(new_ss_socket);
-        // need to implement hash map to store these
-    }
+  sscanf(cmd_string, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
+  printf("%s\n",cmd_string);
+  close(new_ss_socket);
+// need to implement hash map to store these
+}
 }*/
 // In ns.c
 
@@ -310,7 +335,7 @@ void* Storage_listener_thread (void *arg) {
 
         args->client_socket = new_ss_socket;
         inet_ntop(AF_INET, &ss_addr.sin_addr, args->client_ip, INET_ADDRSTRLEN);
-        
+
         // Create the handler thread
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, Handle_storage_server, (void*)args) != 0) {
@@ -333,7 +358,7 @@ void* Handle_storage_server(void* arg) {
     free(args);
 
     printf("[Thread %ld] New Storage Server connected from %s.\n", pthread_self(), ss_ip_str);
-    
+
     char buffer[BUFFER_SIZE];
     char *msg = "ACK - SS Registered\n"; 
 
@@ -361,10 +386,10 @@ void* Handle_storage_server(void* arg) {
             // pthread_mutex_lock(&ss_list_mutex); 
             sscanf(cmd_string, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
             // pthread_mutex_unlock(&ss_list_mutex);
-            
+
             printf("--- SS REGISTRATION ---\n");
             printf("IP: %s, NS_PORT: %d, CLIENT_PORT: %d\n", ss_ip, ns_port, client_port);
-            
+
             // Send ACK
             send(new_ss_socket, msg, strlen(msg), 0);
         } else {
