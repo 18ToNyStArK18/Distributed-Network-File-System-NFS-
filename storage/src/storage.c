@@ -10,7 +10,7 @@ void* Handle_Client (void* arg);
 int Pack (Packet* pkt , char * buff);
 
 int main() {
-    int server_fd, new_socket, client_fd;
+    int server_fd, client_fd;
     struct sockaddr_in ns_addr, client_addr;
     socklen_t client_len = sizeof(client_addr);
     socklen_t ns_len = sizeof(ns_addr);
@@ -83,7 +83,7 @@ int main() {
 
     struct sockaddr_in ns_server_addr;
     ns_server_addr.sin_family = AF_INET;
-    ns_server_addr.sin_port = htons(NS_PORT);
+    ns_server_addr.sin_port = htons(NS_PORT_SS);
 
     if (inet_pton(AF_INET, NS_IP, &ns_server_addr.sin_addr) <= 0) {
         perror("Invalid NS_IP");
@@ -106,7 +106,7 @@ int main() {
     // format: "REGISTER <ip> <ns_port> <client_port>"
     char reg_msg[64];
     printf("Storage Server running on %s:%d\n", my_ip, ns_port);
-    snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d %d\n", my_ip, ns_port, client_port);
+    snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d %d", my_ip, ns_port, client_port);
 
     Packet pkt;
     memset(&pkt, 0 , sizeof(pkt));

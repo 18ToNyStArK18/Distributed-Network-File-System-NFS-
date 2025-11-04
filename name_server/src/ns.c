@@ -3,6 +3,14 @@
 #include "../../cmn_inc.h"
 #include <pthread.h>
 
+#define BUFFER_SIZE 1024
+
+int ns_port, client_port;
+char ss_ip[40];
+
+void* Client_listener_thread (void *arg);
+void* Storage_listener_thread (void *arg);
+
 typedef struct{
     int client_socket;
     char client_ip[INET_ADDRSTRLEN];
@@ -157,19 +165,66 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 5) < 0) {
+    int storage_fd;
+    struct sockaddr_in ss_addr;
+    socklen_t ss_len = sizeof(ss_addr);
+
+    if ((storage_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&ss_addr, 0, sizeof(ss_addr));
+    ss_addr.sin_family = AF_INET;
+    ss_addr.sin_port = NS_PORT_SS;
+
+    if (inet_pton(AF_INET, NS_IP, &ss_addr.sin_addr) <= 0) {
+        perror("Invalid IP address in NS_IP");
+        exit(EXIT_FAILURE);
+    }
+    if (bind(server_fd, (struct sockaddr *)&ss_addr, sizeof(ss_addr)) < 0) {
+        perror("bind failed");
+        close(storage_fd);
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(server_fd, 20) < 0) {
         perror("listen failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
+    if (listen(storage_fd, 20) < 0) {
+        perror("listen failed");
+        close(storage_fd);
+        exit(EXIT_FAILURE);
+    }
 
-    printf("Server listening on %s:%d...\n", NS_IP, NS_PORT);
+    printf("Server listening for clients on %s:%d...\n", NS_IP, NS_PORT);
+    printf("Server listening for storage servers on %s:%d...\n", NS_IP, NS_PORT_SS);
+
+    pthread_t client_thread, storage_thread;
+
+    pthread_create(&client_thread, NULL, Client_listener_thread, &server_fd);
+    pthread_create(&storage_thread, NULL, Storage_listener_thread, &storage_fd);
+
+    pthread_detach(client_thread);
+    pthread_detach(storage_thread);
+
+    while(1) sleep(1000);
+
+    return 0;
+}
+
+void* Client_listener_thread (void *arg) {
+
+    int server_fd = *(int*)arg;
+
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
 
     while(1){
-
-        client_len = sizeof(client_addr); 
         memset(&client_addr, 0, sizeof(client_addr));
-        new_socket = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+        int new_socket = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
         if (new_socket < 0) {
             perror("accept failed");
             continue; 
@@ -193,7 +248,28 @@ int main() {
 
         pthread_detach(thread_id);
     }
+}
 
-    close(server_fd);
-    return 0;
+void* Storage_listener_thread (void *arg) {
+    int ss_fd = (int)(long)arg;
+    char buffer[BUFFER_SIZE];
+    char *msg = "ACK - Command Received\n";
+
+    while(1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int r = recv(ss_fd, buffer, sizeof(buffer), 0);
+
+        if (r <= 0) {
+            if (r == 0) { 
+                printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), NS_IP);
+            }
+            else { 
+                perror("[Thread] recv failed\n");
+            }
+            break;
+        }
+
+        sscanf(buffer, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
+        // need to implement hash map to store these
+    }
 }
