@@ -307,7 +307,7 @@ void* Handle_Client (void* arg) {
             }
 
             Packet end;
-            memset(&end, 0, sizoef(end));
+            memset(&end, 0, sizeof(end));
             end.REQ_FLAG = READ_END;
             char signal_end[BUFFER_SIZE];
             int bytes = Pack(&end, signal_end);

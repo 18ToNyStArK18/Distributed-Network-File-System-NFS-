@@ -185,7 +185,7 @@ int main() {
         perror("Invalid IP address in NS_IP");
         exit(EXIT_FAILURE);
     }
-    if (bind(server_fd, (struct sockaddr *)&ss_addr, sizeof(ss_addr)) < 0) {
+    if (bind(storage_fd, (struct sockaddr *)&ss_addr, sizeof(ss_addr)) < 0) {
         perror("bind failed");
         close(storage_fd);
         exit(EXIT_FAILURE);
