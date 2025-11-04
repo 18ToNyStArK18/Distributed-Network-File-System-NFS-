@@ -282,7 +282,6 @@ void* Handle_Client (void* arg) {
 
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, filename);
     
-        send(new_socket, msg, strlen(msg), 0);  
         
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
@@ -293,9 +292,10 @@ void* Handle_Client (void* arg) {
             char read_buffer[BUFFER_SIZE];
             size_t bytesRead;
 
-            while ((bytesRead = fread(read_buffer, 1, BUFFER_SIZE, fp)) > 0) { 
+            while ((bytesRead = fread(read_buffer, 1, BUFFER_SIZE-1, fp)) > 0) { 
                 Packet pkt;
                 memset(&pkt, 0 , sizeof(pkt));
+                read_buffer[bytesRead] = '\0';
                 strncpy(pkt.req_cmd, read_buffer, sizeof(pkt.req_cmd)-1);
                 pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
                 pkt.REQ_FLAG = READ_DATA;
@@ -305,6 +305,7 @@ void* Handle_Client (void* arg) {
 
                 send(new_socket, send_data, bytes_to_send, 0);
             }
+            fclose(fp);
 
             Packet end;
             memset(&end, 0, sizeof(end));
