@@ -1,5 +1,7 @@
 #include "../inc/client_funcs.h"
 #include "../../name_server/inc/ip.h"
+//NOTE
+//while sending the username '\n' is also included idk how to remove it
 // define the macros for the communication in tcp
 int Pack(Packet* pkt , char * buff){
     memset(buff, 0 ,BUFFER_SIZE);
@@ -32,9 +34,7 @@ int main(){
     char user_name[max_username];
     printf(GREEN"Enter your user name: "NORMAL);
     fgets(user_name,max_username,stdin);
-    printf(GREEN"Logging in as :%s"NORMAL,user_name);
-    printf(GREEN"Enter quit to exit\n\n"GREEN);
-    // the tcp socket connection for the client
+   // the tcp socket connection for the client
     int client_socket;
     struct sockaddr_in server_addr;       
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -70,18 +70,24 @@ int main(){
         printf(RED"Unable to send the username to the server\n"NORMAL);
         exit(0);
     }
-    /*uint32_t username_flag;
+    uint32_t username_flag;
     char *username_buffer;
     if(recv(client_socket,buffer,BUFFER_SIZE,0)< 0){
         printf(RED"Error in recieving packet\n"NORMAL);
     }
     Unpack(buffer,&username_flag,&username_buffer);
-    if(username_flag == Fail){
-        printf(RED"This username is already logged in please logout from that device to login again"NORMAL);
+    if(username_flag == USER_ACTIVE_ALR){
+        printf(RED"\nThis username is already logged in please logout from that device to login again\n"NORMAL);
         exit(-1);
     }
-    assert(username_flag == Success);*/
+    else if(username_flag == NO_USER_SLOTS){
+        printf(RED"Number of users reached the limit\n"NORMAL);
+        exit(-1);
+    }
+    assert(username_flag == Success);
     printf(GREEN"Successfully registered the username of the client\n Server Says: %s\n"NORMAL,buffer);
+    printf(GREEN"Logging in as :%s"NORMAL,user_name);
+    printf(GREEN"Enter quit to exit\n\n"GREEN);
     while(1){
         printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
@@ -121,16 +127,6 @@ int main(){
             memset(recv_buff,0,BUFFER_SIZE);
             uint32_t flag = -1;
             char *cmd_string;
-            if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
-                printf(RED"Error in recieving packet\n"NORMAL);
-                continue;
-            }
-            Unpack(recv_buff,&flag,&cmd_string);
-            if(flag == Fail){
-                printf(RED"Command failed\n"NORMAL);
-                continue;
-            }
-            assert(flag == Success);
             while(1){
                 if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
                     printf(RED"Error in recieving packet\n"NORMAL);

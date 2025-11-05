@@ -46,3 +46,37 @@ int send_to_SS(char *buff,char *ss_ip,int ss_port,int size){
     else
         return -1;
 }
+int reg_user(char * username, userdatabase *users){
+    int user_idx = -1;
+    for(int i=0;i<users->num_of_users;i++){
+        if(strcmp(username,users->username_arr[i].username)==0)
+            user_idx = i;
+    }
+    if( user_idx == -1){
+        //user not registered
+        if(users->num_of_users == MAX_USERS)
+            return -2;
+        strcpy(users->username_arr[users->num_of_users].username,username);
+        users->username_arr[users->num_of_users].active = 1;
+        users->num_of_users++;
+        return 0;   
+    }
+    else{
+        if(users->username_arr[user_idx].active == 1)
+            return -1;
+        users->username_arr[user_idx].active = 1;
+        return 0;      
+
+    }
+}
+void removeusername(char *username,userdatabase *database){
+
+    for(int i=0;i<database->num_of_users;i++){
+        if(strcmp(username,database->username_arr[i].username)==0){
+            database->username_arr[i].active = 0;
+            return;
+        }
+    }
+
+
+}

@@ -3,9 +3,10 @@
 #include "../../cmn_inc.h"
 #include "assert.h"
 #include <pthread.h>
+#include <string.h>
 
 #define BUFFER_SIZE 1024
-
+userdatabase users;
 int ns_port, client_port; // ns_port is for ss and ns connection, client_port is for client and ss connection
 char ss_ip[40];
 
@@ -50,6 +51,7 @@ void* Handle_client(void* arg){
     strcpy(client_ip, args->client_ip); // Make a local copy
     char msg[MAX_WORDS_IN_INP * MAX_WORD_SIZE];
     free(args);
+    char username_of_client[1024];
 
     char buffer[1024] = {0};
 
@@ -63,6 +65,7 @@ void* Handle_client(void* arg){
         if (bytes <= 0) {
             if (bytes == 0) {
                 printf("[Thread %ld] Client %s disconnected.\n", pthread_self(), client_ip);
+                removeusername(username_of_client,&users);
             } else {
                 perror("[Thread] recv failed");
             }
@@ -73,11 +76,50 @@ void* Handle_client(void* arg){
         char * cmd_string;
         Unpack(buffer, &flag, &cmd_string);
         if(flag == USER_REG){ 
-            strcpy(msg,"ACK fo the user");
+            //1) need to find if the username is already present if yes make the active flag 1 if its already 1 error
+            //2) If we username is not there then add the username and when the client disconnects dont forget to make the active to 0
+            int ret = reg_user(cmd_string,&users);
+            uint32_t flag;
+            if(ret == 0){
+                flag = Success;
+                strcpy(username_of_client,cmd_string);
+                printf(GREEN"Client with username: %s Successfully connected\n"NORMAL,cmd_string);
+            }
+            else if(ret == -1)
+                flag = USER_ACTIVE_ALR;
+            else
+                flag = NO_USER_SLOTS;
+            Packet pkt;
+            pkt.REQ_FLAG = flag;
+            int bytes_to_send = Pack(&pkt,buffer);
+            if(send(new_socket,buffer,bytes_to_send,0)<0)
+                printf("Error\n");
         }
-        if(flag == VIEW){
+        else if(flag == LIST){
             //no need to send the packet to storage server
-            strcpy(msg,"ACK for the VIEW");
+            int indx = 0;
+            int num_of_users = users.num_of_users;
+            Packet pkt;
+            for(int i=0;i<num_of_users;i++){
+                pkt.REQ_FLAG = VIEW_DATA;
+                char message[1024];
+                char user_state[30];
+                strcpy(user_state, (users.username_arr[i].active == 0) ? "in-active" : "active");
+                sprintf(message,"%s %s\n",users.username_arr[i].username,user_state);
+                strcpy(pkt.req_cmd,message);
+                int bytes_to_send = Pack(&pkt,buffer);
+                if(send(new_socket,buffer,bytes_to_send,0)<0){
+                    printf("Error in sending the file\n");
+                }
+                usleep(500);
+            }
+            pkt.REQ_FLAG = VIEW_END;
+            int bytes_to_send = Pack(&pkt,buffer);
+            if(send(new_socket,buffer,bytes_to_send,0)<0){
+                printf("Error in sending the file\n");
+            }
+            printf("\nVIEW Packets Sent Successfully\n");
+
         }
         else if(flag == READ_REQ_NS){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
@@ -174,7 +216,7 @@ void* Handle_client(void* arg){
         }
 
 
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
+        printf("\n[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, cmd_string);
     }
 
     close(new_socket);
@@ -184,7 +226,9 @@ void* Handle_client(void* arg){
 int main() {
     int server_fd;
     struct sockaddr_in address;
-
+    users.num_of_users = 0;
+    for(int i=0;i<MAX_USERS;i++)
+        users.username_arr[i].active = 0;
     //setting up the socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");

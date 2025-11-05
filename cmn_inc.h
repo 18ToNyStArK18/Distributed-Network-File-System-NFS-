@@ -71,6 +71,10 @@ int Pack(Packet* pkt , char * buff);
 // Register storage ip and port
 #define REG_SS 22
 #define USER_REG 23
+#define USER_ACTIVE_ALR 24
+#define NO_USER_SLOTS 25
+#define MAX_USERS 1024
+#define USERNAME_SIZE 1024
 
 
 #define MAX_FILE_NAME_SIZE 1024
