@@ -81,7 +81,15 @@ void* Handle_client(void* arg){
         }
         else if(flag == READ_REQ_NS){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
-            sprintf(msg,"%s %d",ss_ip,client_port);           
+            Packet pkt;
+            //if file found
+            pkt.REQ_FLAG = SS_IP_PORT;
+            sprintf(pkt.req_cmd,"%s %d",ss_ip,client_port);           
+            //if file not found send the FILE_DOESNT_EXIST flag
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buff);
+            send(new_socket,send_buff,bytes_to_send,0);
+            printf("[NS] READ_REQ received , sent the ss_ip and port\n");
 
         }
         else if(flag == CREATE_REQ){
@@ -174,10 +182,8 @@ void* Handle_client(void* arg){
 }
 
 int main() {
-    int server_fd, new_socket;
-    struct sockaddr_in address, client_addr;
-    socklen_t client_len = sizeof(client_addr);
-    char buffer[1024] = {0};
+    int server_fd;
+    struct sockaddr_in address;
 
     //setting up the socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -208,7 +214,6 @@ int main() {
 
     int storage_fd;
     struct sockaddr_in ss_addr;
-    socklen_t ss_len = sizeof(ss_addr);
 
     if ((storage_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");

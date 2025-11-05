@@ -1,7 +1,5 @@
-
-#include "../../cmn_inc.h"
+#include "../inc/client_funcs.h"
 #include "../../name_server/inc/ip.h"
-
 // define the macros for the communication in tcp
 int Pack(Packet* pkt , char * buff){
     memset(buff, 0 ,BUFFER_SIZE);
@@ -202,63 +200,29 @@ int main(){
                 printf(RED"Error in recieving packet\n"NORMAL);
                 continue;
             }
-            /*uint32_t flag =1;
-            char *cmd_string;
-            Unpack(recv_buff,&flag,&cmd_string);
-            if(flag == FILE_DOESNT_EXIST){
-                printf(RED"FILE_DOESNT_EXIST\n"NORMAL);
+            uint32_t flag;
+            char *cmd_str;
+            Unpack(recv_buff,&flag,&cmd_str);
+            if(flag == SS_IP_PORT)
+                printf(GREEN"SS_ip and port recieved Successfully\n"NORMAL"%s\n",cmd_str);
+            else{
+                printf("FILE_DOESNT_EXIST\n");
                 continue;
             }
-            //if file exists i will the get the packet with the storage server ip and port
-            assert(flag == Success);
-            */
             char ss_ip[40];
             int port;
-            sscanf(recv_buff,"%s %d",ss_ip,&port);
+            sscanf(cmd_str,"%s %d",ss_ip,&port);
             //now i have the port and the ip of the storage server where the file is located now i need to req to that server
-            //new connection logic
-            //close(client_socket);
-            int ss_socket = socket(AF_INET, SOCK_STREAM, 0);
-            assert(ss_socket >= 0);
-            memset(&server_addr,0,sizeof(server_addr));
-            server_addr.sin_family = AF_INET;
-            server_addr.sin_port = htons(port);
-
-            if(inet_pton(AF_INET,ss_ip,&server_addr.sin_addr) <= 0){
-                printf(RED"Invalid address: %s\n"NORMAL, NS_IP);
-                perror("inet_pton failed");
-                close(client_socket);
-                exit(1);
-            }
-            // got the server ip in the req format
-            //conneting to the server
-            if (connect(ss_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-                printf(RED"Failed to connect to %s:%d\n"NORMAL, NS_IP, NS_PORT);
-                perror("ERROR connecting");
-                close(client_socket);
-                exit(1);
-            }
-            uint32_t flag = -1;
-            char *cmd_string;
-            printf(GREEN"Successfully connected to Storage Server!\n"NORMAL);
             Packet pkt;
             pkt.REQ_FLAG = READ_REQ_SS;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes = Pack(&pkt,buffer);
-            send(ss_socket,buffer,bytes,0);
-            while(1){
-                if(recv(ss_socket,recv_buff,BUFFER_SIZE,0)< 0){
-                    printf(RED"Error in recieving packet\n"NORMAL);
-                    continue;
-                }   
-                Unpack(recv_buff,&flag,&cmd_string);
-                if(flag == READ_END)
-                    break;
-                else
-                    printf("%s",cmd_string);
-            }
-            printf("Reading the file is done\n");
-            close(ss_socket);
+
+            int a = client_ss_read(buffer,ss_ip,port,bytes);
+            if(a==0)
+                printf(GREEN"\nReading the file is done\n"NORMAL);
+            else
+                printf(RED"\nError in reading the file\n"NORMAL);
         }
         else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file

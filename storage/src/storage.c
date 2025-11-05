@@ -348,23 +348,21 @@ void* Handle_Client (void* arg) {
                 sentence[idx++] = c;
 
                 // End of sentence detected
-                if (c == '.' || c == '!' || c == '?') {
+                if (c == '.' || c == '!' || c == '?' || c == '\n') {
                     sentence[idx] = '\0'; // null terminate sentence
 
                     Packet pkt;
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = READ_DATA;
-                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd)-1);
-                    pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
-
                     char send_buff[BUFFER_SIZE];
+                    strcpy(pkt.req_cmd, sentence);
                     int bytes_to_send = Pack(&pkt, send_buff);
 
-                    if (send_all(new_socket, send_buff, bytes_to_send) < 0) {
-                        perror("send_all failed");
+                    if (send(new_socket, send_buff, bytes_to_send,0) < 0) {
+                        perror("send failed");
                         break;
                     }
-
+                    usleep(500); //so that multiple packets will not be merged by tcp
                     idx = 0; // reset for next sentence
                 }
                 
@@ -374,15 +372,26 @@ void* Handle_Client (void* arg) {
                     Packet pkt;
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = READ_DATA;
-                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd)-1);
-                    pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
 
+                    strcpy(pkt.req_cmd, sentence);
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
-                    send_all(new_socket, send_buff, bytes_to_send);
+                    send(new_socket, send_buff, bytes_to_send,0);
 
                     idx = 0;
                 }
+            }
+            if (idx > 0) {
+                sentence[idx] = '\0'; // Null-terminate the last chunk
+                Packet pkt;
+                memset(&pkt, 0, sizeof(pkt));
+                pkt.REQ_FLAG = READ_DATA;
+                strcpy(pkt.req_cmd, sentence);
+
+                char send_buff[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt, send_buff);
+                send(new_socket, send_buff, bytes_to_send, 0);
+                usleep(500);
             }
 
             fclose(fp);
@@ -394,7 +403,7 @@ void* Handle_Client (void* arg) {
 
             char end_buff[BUFFER_SIZE];
             int bytes = Pack(&end, end_buff);
-            send_all(new_socket, end_buff, bytes);
+            send(new_socket, end_buff, bytes,0);
 
             printf("Sent READ_END\n");
         }   
