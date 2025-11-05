@@ -338,32 +338,67 @@ void* Handle_Client (void* arg) {
                 perror("Error opening file");
                 continue;
             }
-            char read_buffer[BUFFER_SIZE];
-            size_t bytesRead;
 
-            while ((bytesRead = fread(read_buffer, 1, BUFFER_SIZE-1, fp)) > 0) { 
-                Packet pkt;
-                memset(&pkt, 0 , sizeof(pkt));
-                read_buffer[bytesRead] = '\0';
-                strncpy(pkt.req_cmd, read_buffer, sizeof(pkt.req_cmd)-1);
-                pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
-                pkt.REQ_FLAG = READ_DATA;
-                printf("%s\n",pkt.req_cmd);
-                char send_data[BUFFER_SIZE];
-                int bytes_to_send = Pack(&pkt, send_data);
+            char sentence[BUFFER_SIZE];
+            int idx = 0;
+            int c;
 
-                send(new_socket, send_data, bytes_to_send, 0);
+            while ((c = fgetc(fp)) != EOF) {
+
+                sentence[idx++] = c;
+
+                // End of sentence detected
+                if (c == '.' || c == '!' || c == '?') {
+                    sentence[idx] = '\0'; // null terminate sentence
+
+                    Packet pkt;
+                    memset(&pkt, 0, sizeof(pkt));
+                    pkt.REQ_FLAG = READ_DATA;
+                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd)-1);
+                    pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
+
+                    char send_buff[BUFFER_SIZE];
+                    int bytes_to_send = Pack(&pkt, send_buff);
+
+                    if (send_all(new_socket, send_buff, bytes_to_send) < 0) {
+                        perror("send_all failed");
+                        break;
+                    }
+
+                    idx = 0; // reset for next sentence
+                }
+                
+                if (idx >= BUFFER_SIZE - 2) {
+                    sentence[idx] = '\0';
+
+                    Packet pkt;
+                    memset(&pkt, 0, sizeof(pkt));
+                    pkt.REQ_FLAG = READ_DATA;
+                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd)-1);
+                    pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
+
+                    char send_buff[BUFFER_SIZE];
+                    int bytes_to_send = Pack(&pkt, send_buff);
+                    send_all(new_socket, send_buff, bytes_to_send);
+
+                    idx = 0;
+                }
             }
+
             fclose(fp);
 
+            // Send END flag
             Packet end;
             memset(&end, 0, sizeof(end));
             end.REQ_FLAG = READ_END;
-            char signal_end[BUFFER_SIZE];
-            int bytes = Pack(&end, signal_end);
-            send(new_socket, signal_end, bytes, 0);
-            printf("Sent the end packet\n");
-        }
+
+            char end_buff[BUFFER_SIZE];
+            int bytes = Pack(&end, end_buff);
+            send_all(new_socket, end_buff, bytes);
+
+            printf("Sent READ_END\n");
+        }   
+
         else if (flag == WRITE_REQ) {
             // write file
         }
