@@ -8,6 +8,7 @@
 userdatabase users;
 int ns_port, client_port; // ns_port is for ss and ns connection, client_port is for client and ss connection
 char ss_ip[40];
+Hashmap *hash;
 
 void* Client_listener_thread (void *arg);
 void* Storage_listener_thread (void *arg);
@@ -110,7 +111,7 @@ void* Handle_client(void* arg){
                 if(send(new_socket,buffer,bytes_to_send,0)<0){
                     printf("Error in sending the file\n");
                 }
-                usleep(500);
+                usleep(10000);
             }
             pkt.REQ_FLAG = VIEW_END;
             int bytes_to_send = Pack(&pkt,buffer);
@@ -124,9 +125,17 @@ void* Handle_client(void* arg){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
             Packet pkt;
             //if file found
-            pkt.REQ_FLAG = SS_IP_PORT;
-            sprintf(pkt.req_cmd,"%s %d",ss_ip,client_port);           
+            filelocation *loc = get_file_location(hash,cmd_string);
+            if(can_read(hash,cmd_string,username_of_client)==-1)
+                loc = NULL;
+            if(loc){
+                pkt.REQ_FLAG = SS_IP_PORT;
+                sprintf(pkt.req_cmd,"%s %d",loc->ip,loc->ss_port);           
+            }
             //if file not found send the FILE_DOESNT_EXIST flag
+            else {
+                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+            }
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt,send_buff);
             send(new_socket,send_buff,bytes_to_send,0);
@@ -148,6 +157,11 @@ void* Handle_client(void* arg){
             if(send(new_socket,buffer,bytes_to_send,0)<0){
                 printf("send the ack to the client is failed\n");
                 continue;
+            }
+            if(!a){
+               if(add_file(hash,cmd_string,ss_ip,client_port,username_of_client)==-1){
+                    printf("Error in storing the file in the Hashmap\n");
+                }
             }
 
         }
@@ -171,27 +185,86 @@ void* Handle_client(void* arg){
                 printf("send the ack to the client is failed\n");
                 continue;
             }
+            if(!a){
+               if(delete_file(hash,cmd_string)==-1){
+                    printf("Error in removing the file in the Hashmap\n");
+                }
+            }
 
         }
         else if(flag == STREAM){
-            //I just need to send the ss ip and port to the client
-            strcpy(msg,"ACK for the STREAM");
+            //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
+            Packet pkt;
+            //if file found
+            filelocation *loc = get_file_location(hash,cmd_string);
+            if(can_read(hash,cmd_string,username_of_client)==-1)
+                loc = NULL;
+            if(loc){
+                pkt.REQ_FLAG = SS_IP_PORT;
+                sprintf(pkt.req_cmd,"%s %d",loc->ip,loc->ss_port);           
+            }
+            //if file not found send the FILE_DOESNT_EXIST flag
+            else {
+                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+            }
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buff);
+            send(new_socket,send_buff,bytes_to_send,0);
+            printf("[NS] STREAM received , sent the ss_ip and port\n");
 
         }
         else if(flag == ADDACCESS_r){
             //change in the database directly and send the ack back
-            strcpy(msg,"ACK for the ADDACCESS_r");
+            char filename[MAX_FILE_NAME_SIZE];
+            char username[MAX_WORD_SIZE];
+            sscanf(cmd_string,"ADDACCESS -R %s %s",filename,username);
+
+            //need to add a cond to check is he the owner of the file
+            int a = add_r_access(hash,filename,username);
+            if(a==1)
+                add_file_to_user(filename,username,&users);
+            Packet pkt;
+            pkt.REQ_FLAG = a == 1 ? Success : Fail;
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buff);
+            if(send(new_socket,send_buff,bytes_to_send,0) < 0){
+                printf("Failed to send\n");
+            }
 
         }
         else if(flag == ADDACCESS_w){
             //same as prev
-            strcpy(msg,"ACK for the ADDACCESS_w");
+            char filename[MAX_FILE_NAME_SIZE];
+            char username[MAX_WORD_SIZE];
+            sscanf(cmd_string,"ADDACCESS -W %s %s",filename,username);
+
+            //need to add a cond to check is he the owner of the file
+            int a = add_w_access(hash,filename,username);
+            Packet pkt;
+            pkt.REQ_FLAG = a == 1 ? Success : Fail;
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buff);
+            if(send(new_socket,send_buff,bytes_to_send,0) < 0){
+                printf("Failed to send\n");
+            }
 
         }
         else if(flag == REMACCESS){
-            //same as prev
-            strcpy(msg,"ACK for the REMACCESS");
+            char filename[MAX_FILE_NAME_SIZE];
+            char username[MAX_WORD_SIZE];
+            sscanf(cmd_string,"REMACCESS %s %s",filename,username);
 
+            //need to add a cond to check is he the owner of the file
+            int a = rem_access(hash,filename,username);
+            Packet pkt;
+            if(a==1)
+                delete_file_from_user(filename,username,&users);
+            pkt.REQ_FLAG = a == 1 ? Success : Fail;
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buff);
+            if(send(new_socket,send_buff,bytes_to_send,0) < 0){
+                printf("Failed to send\n");
+            }
         }
         else if(flag == EXEC){
             //need to send the packet to the ss and the ss will send line by line and will be executed in the ns
@@ -223,11 +296,14 @@ void* Handle_client(void* arg){
 }
 
 int main() {
+    hash = create_hashmap(1024);
     int server_fd;
     struct sockaddr_in address;
     users.num_of_users = 0;
-    for(int i=0;i<MAX_USERS;i++)
+    for(int i=0;i<MAX_USERS;i++){
         users.username_arr[i].active = 0;
+        users.username_arr[i].files = NULL;
+    }
     //setting up the socket
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");

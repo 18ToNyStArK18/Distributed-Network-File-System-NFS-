@@ -101,7 +101,7 @@ Hashmap *create_hashmap(int size){
     return map;
 }
 
-int add_file(Hashmap *map, char *filename, char *ip, int port){
+int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     long hash = hash_fucn(filename);
     int idx = hash % map->size;
 
@@ -114,6 +114,13 @@ int add_file(Hashmap *map, char *filename, char *ip, int port){
     Hashnode *newnode = (Hashnode *)malloc(sizeof(Hashnode));
     newnode->location.ss_port = port;
     newnode->filename = strdup(filename);
+    rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
+    rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
+    strcpy(read_a->username,username);
+    strcpy(write_a->username,username);
+    read_a->next = NULL;
+    write_a->next = NULL;
+    strcpy(newnode->Owner,username);
     strcpy(newnode->location.ip,ip);
     newnode->next = map->buckets[idx];
     map->buckets[idx] = newnode;
@@ -132,7 +139,7 @@ filelocation* get_file_location(Hashmap *map,char *filename){
         }
         current = current->next;
     }
-
+    return NULL;
 }
 
 int delete_file(Hashmap *map,char *filename){
@@ -178,4 +185,187 @@ void free_hashmap(Hashmap *map) {
     
     free(map->buckets); 
     free(map);          
+}
+
+int add_r_access(Hashmap *map,char *filename,char *username){
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            
+            rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
+            strcpy(read_a->username,username);
+            read_a->next=current->read;
+            current->read = read_a;
+            return 1;
+        }
+        current = current->next;
+    }
+    return -1;
+
+}
+int add_file_to_user(char *filename, char *username, userdatabase *users){
+    int i = 0;
+    int n = users->num_of_users;
+    for (int i=0;i<n;i++){
+        if(strcmp(username,users->username_arr[i].username)==0){
+
+            filename_foruser *add_file = (filename_foruser *)malloc(sizeof(filename_foruser));
+            add_file->next = users->username_arr[i].files;
+            strcpy(add_file->filename,filename);
+            users->username_arr[i].files = add_file;
+            return 1;
+        }
+    }
+    return -1;
+}
+int add_w_access(Hashmap *map,char *filename,char *username){
+    if(add_r_access(map,filename,username)==-1)
+        return -1;
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+
+            rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
+            strcpy(write_a->username,username);
+            write_a->next=current->write;
+            current->read = write_a;
+            return 1;
+        }
+        current = current->next;
+    }
+    return -1;
+}
+int rem_access(Hashmap *map,char *filename,char *username){
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+    int flag = 0;
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            //for read
+            rw_access *it=current->read,*prev=NULL;
+            while(it != NULL){
+                if(strcmp(it->username,username)==0){
+                    if(prev){
+                        prev->next = it->next;
+                        free(it);
+                    }
+                    else{
+                        current->read = it->next;
+                        free(it);
+                    }
+                    flag = 1;
+                    break;
+
+                }
+
+                prev = it;
+                it = it->next;
+            }
+            //for write
+            it=current->write,prev=NULL;
+            while(it != NULL){
+                if(strcmp(it->username,username)==0){
+                    if(prev){
+                        prev->next = it->next;
+                        free(it);
+                    }
+                    else{
+                        current->write = it->next;
+                        free(it);
+                    }
+                    flag = 1;
+                    break;
+
+                }
+
+                prev = it;
+                it = it->next;
+            }
+
+            if(flag)
+                return 1;
+            else
+                return -1;
+        }
+        current = current->next;
+    }
+    return -1;
+}
+int can_read(Hashmap *map,char *filename,char *username){
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+
+            rw_access *it = current->read;
+            while(it != NULL){
+                if(strcmp(it->username,username)==0){
+                    return 1;
+                }
+                it= it->next;
+            }
+            return -1;
+        }
+        current = current->next;
+    }
+    return -1;
+}
+int can_write(Hashmap *map,char *filename,char *username){
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+
+            rw_access *it = current->write;
+            while(it != NULL){
+                if(strcmp(it->username,username)==0){
+                    return 1;
+                }
+                it= it->next;
+            }
+            return -1;
+        }
+        current = current->next;
+    }
+    return -1;
+}
+
+int delete_file_from_user(char *filename, char *username, userdatabase *users){
+    int i = 0;
+    int n = users->num_of_users;
+    for (int i=0;i<n;i++){
+        if(strcmp(username,users->username_arr[i].username)==0){
+            filename_foruser *it = users->username_arr[i].files,*prev=NULL;
+            while(it != NULL){
+                if(strcmp(it->filename,filename)==0){
+                    if(prev)
+                        prev->next = it->next;
+                    else
+                        users->username_arr[i].files = it->next;
+                    free(it);
+                    return 1;
+                }
+                prev = it;
+                it = it->next;
+            }
+            return -1;
+        }
+    }
+    return -1;
 }
