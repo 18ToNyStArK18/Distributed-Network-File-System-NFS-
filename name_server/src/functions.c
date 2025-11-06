@@ -127,24 +127,46 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     return 1;
 }
 
-filelocation* get_file_location(Hashmap *map,char *filename){
-
+int get_file_location(Hashmap *map, char *filename, filelocation *out){
+    // printf("get_file_location: start\n");
+    // printf("get_file_location: map=%p, filename=%s, out=%p\n", map, filename, out);
+    
+    if (map == NULL) {
+        printf("get_file_location: map is NULL!\n");
+        return 0;
+    }
+    
+    if (filename == NULL) {
+        printf("get_file_location: filename is NULL!\n");
+        return 0;
+    }
+    
+    // printf("get_file_location: calling hash_fucn\n");
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    // printf("get_file_location: hash=%ld\n", hash);
+    
+    int index = abs(hash) % map->size;
+    // printf("get_file_location: index=%d, map->size=%d\n", index, map->size);
+    
     Hashnode *current = map->buckets[index];
+    // printf("get_file_location: current=%p\n", current);
+    
     while (current != NULL) {
+        // printf("get_file_location: checking node with filename=%s\n", current->filename);
         if (strcmp(current->filename, filename) == 0) {
-            // Found it! Return a pointer to the location data.
-            return &(current->location);
+            // printf("get_file_location: found! copying location\n");
+            *out = current->location;
+            return 1;
         }
         current = current->next;
     }
-    return NULL;
+    // printf("get_file_location: not found\n");
+    return 0;
 }
 
 int delete_file(Hashmap *map,char *filename){
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
     Hashnode *prev = NULL;
@@ -189,7 +211,7 @@ void free_hashmap(Hashmap *map) {
 
 int add_r_access(Hashmap *map,char *filename,char *username){
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
 
@@ -226,7 +248,7 @@ int add_w_access(Hashmap *map,char *filename,char *username){
     if(add_r_access(map,filename,username)==-1)
         return -1;
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
 
@@ -245,7 +267,7 @@ int add_w_access(Hashmap *map,char *filename,char *username){
 }
 int rem_access(Hashmap *map,char *filename,char *username){
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
     int flag = 0;
@@ -303,7 +325,7 @@ int rem_access(Hashmap *map,char *filename,char *username){
 }
 int can_read(Hashmap *map,char *filename,char *username){
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
 
@@ -325,7 +347,7 @@ int can_read(Hashmap *map,char *filename,char *username){
 }
 int can_write(Hashmap *map,char *filename,char *username){
     long hash = hash_fucn(filename);
-    int index = hash % map->size;
+    int index = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[index];
 

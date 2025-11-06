@@ -105,7 +105,7 @@ void* Handle_client(void* arg){
                 char message[1024];
                 char user_state[30];
                 strcpy(user_state, (users.username_arr[i].active == 0) ? "in-active" : "active");
-                sprintf(message,"%s %s\n",users.username_arr[i].username,user_state);
+                snprintf(message, sizeof(message), "%.1000s %.20s\n", users.username_arr[i].username, user_state);
                 strcpy(pkt.req_cmd,message);
                 int bytes_to_send = Pack(&pkt,buffer);
                 if(send(new_socket,buffer,bytes_to_send,0)<0){
@@ -125,12 +125,22 @@ void* Handle_client(void* arg){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
             Packet pkt;
             //if file found
-            filelocation *loc = get_file_location(hash,cmd_string);
-            if(can_read(hash,cmd_string,username_of_client)==-1)
-                loc = NULL;
-            if(loc){
-                pkt.REQ_FLAG = SS_IP_PORT;
-                sprintf(pkt.req_cmd,"%s %d",loc->ip,loc->ss_port);           
+            printf("before\n");
+            if(hash == NULL) {
+                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                printf("Hashmap not intitalized!\n");
+            }
+            else{
+            printf("Hashmap intitalized!\n");
+            filelocation loc;
+            if (get_file_location(hash,cmd_string, &loc)) {
+                printf("after\n");
+                if(can_read(hash,cmd_string,username_of_client)==-1)
+                    pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                else{
+                    pkt.REQ_FLAG = SS_IP_PORT;
+                    sprintf(pkt.req_cmd,"%s %d",loc.ip,loc.ss_port);           
+                }
             }
             //if file not found send the FILE_DOESNT_EXIST flag
             else {
@@ -140,7 +150,7 @@ void* Handle_client(void* arg){
             int bytes_to_send = Pack(&pkt,send_buff);
             send(new_socket,send_buff,bytes_to_send,0);
             printf("[NS] READ_REQ received , sent the ss_ip and port\n");
-
+            }
         }
         else if(flag == CREATE_REQ){
             //we need to send a packet to the storage server so that it can create the files in that storege server
@@ -196,12 +206,14 @@ void* Handle_client(void* arg){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
             Packet pkt;
             //if file found
-            filelocation *loc = get_file_location(hash,cmd_string);
-            if(can_read(hash,cmd_string,username_of_client)==-1)
-                loc = NULL;
-            if(loc){
-                pkt.REQ_FLAG = SS_IP_PORT;
-                sprintf(pkt.req_cmd,"%s %d",loc->ip,loc->ss_port);           
+            filelocation loc;
+            if(get_file_location(hash, cmd_string, &loc)) {
+                if(can_read(hash,cmd_string,username_of_client)==-1)
+                    pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                else{
+                    pkt.REQ_FLAG = SS_IP_PORT;
+                    sprintf(pkt.req_cmd,"%s %d",loc.ip,loc.ss_port);           
+                }
             }
             //if file not found send the FILE_DOESNT_EXIST flag
             else {
@@ -211,7 +223,6 @@ void* Handle_client(void* arg){
             int bytes_to_send = Pack(&pkt,send_buff);
             send(new_socket,send_buff,bytes_to_send,0);
             printf("[NS] STREAM received , sent the ss_ip and port\n");
-
         }
         else if(flag == ADDACCESS_r){
             //change in the database directly and send the ack back

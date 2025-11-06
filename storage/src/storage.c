@@ -223,7 +223,7 @@ void* Client_listener_thread(void *arg) {
 void* Handle_NS (void* arg) {
     int ns_fd = (int)(long)arg;
     char buffer[BUFFER_SIZE];
-    char *msg = "ACK - Command Received\n";
+    // char *msg = "ACK - Command Received\n";
 
     while(1) {
         memset(buffer, 0, BUFFER_SIZE);
@@ -316,7 +316,8 @@ void* Handle_Client (void* arg) {
     char client_ip[INET_ADDRSTRLEN];
     char buffer[BUFFER_SIZE] = {0};
     strcpy(client_ip, args->client_ip);
-    char msg[MAX_WORDS_IN_INP * MAX_WORD_SIZE];
+    // char msg[MAX_WORDS_IN_INP * MAX_WORD_SIZE];
+    printf("Client IP: %s Client Port: %d\n", client_ip, new_socket);
     free(args);
 
     while(1) {
@@ -337,7 +338,7 @@ void* Handle_Client (void* arg) {
         char* filename;
         Unpack(buffer, &flag, &filename); // client sends the filename in place of cmd_string as we know what cmd it is by the flag
 
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, filename);
+        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, filename);
 
 
         if (flag == READ_REQ_SS) {
@@ -397,7 +398,7 @@ void* Handle_Client (void* arg) {
                         break;
                     }
 
-                    usleep(500); //so that multiple packets will not be merged by tcp
+                    usleep(10000); //so that multiple packets will not be merged by tcp
 
                     if (lock_held) {
                         pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);

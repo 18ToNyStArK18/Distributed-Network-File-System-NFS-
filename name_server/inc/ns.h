@@ -57,7 +57,7 @@ int add_file(Hashmap *map,char *filename,char *ip,int port,char *username);
 //remove a file data
 int delete_file(Hashmap *map,char *filename);
 //fetch the data of the file
-filelocation *get_file_location(Hashmap *map,char*filename);
+int get_file_location(Hashmap *map, char*filename, filelocation* out);
 //free Hashmap
 void free_hashmap(Hashmap *map);
 int add_r_access(Hashmap *map,char *filename,char *username);
