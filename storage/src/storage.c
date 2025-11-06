@@ -1,40 +1,21 @@
 #include "../../name_server/inc/ip.h"
 #include "../inc/storage.h"
 #include "../../cmn_inc.h"
+#include "../inc/locks.h"
 #include <pthread.h>
 #include <time.h>
 #include <assert.h>
+
 void* NS_listener_thread (void *arg);
 void* Client_listener_thread (void *arg);
 void* Handle_NS (void* arg);
 void* Handle_Client (void* arg);
-int Pack(Packet* pkt , char * buff) {
-    memset(buff, 0 ,BUFFER_SIZE);
-    char *ptr = buff;
+FileLockTable* get_or_build_sentence_table(const char *filename);
+int Pack(Packet* pkt , char * buff);
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string); 
 
-    uint32_t flag = htonl(pkt->REQ_FLAG);
-    memcpy(ptr,&flag,sizeof(uint32_t));
-
-    ptr += sizeof(uint32_t);
-
-    int cmd_len = strlen(pkt->req_cmd)+1;
-    memcpy(ptr,pkt->req_cmd,cmd_len);
-    
-    ptr += cmd_len;
-    return ptr - buff;
-}
-
-void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
-    char *ptr = buffer;
-    
-    uint32_t flag_net;
-    memcpy(&flag_net, ptr, sizeof(uint32_t));
-    *flag = ntohl(flag_net); // Convert back from Network Order
-    ptr += sizeof(uint32_t);
-    
-    *cmd_string = ptr; 
-}
 pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
+
 int main() {
     int server_fd, client_fd;
     struct sockaddr_in ns_addr, client_addr;
@@ -68,7 +49,7 @@ int main() {
     int ns_port = ntohs(ns_addr.sin_port);
     printf("[SS] NS socket listening on port %d\n", ns_port);
 
-    listen(server_fd, 20);
+    listen(server_fd, MAX_CONNS);
 
     /************** 1. Create client socket **************/
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -97,7 +78,7 @@ int main() {
     int client_port = ntohs(client_addr.sin_port);
     printf("[SS] Client socket listening on port %d\n", client_port);
 
-    listen(client_fd, 20);
+    listen(client_fd, MAX_CONNS);
 
 
     /************** 4. Register with Name Server **************/
@@ -171,6 +152,33 @@ int main() {
 }
 
 // pack the struct into a buffer so that i can send the pckt to the name server
+
+int Pack(Packet* pkt , char * buff) {
+    memset(buff, 0 ,BUFFER_SIZE);
+    char *ptr = buff;
+
+    uint32_t flag = htonl(pkt->REQ_FLAG);
+    memcpy(ptr,&flag,sizeof(uint32_t));
+
+    ptr += sizeof(uint32_t);
+
+    int cmd_len = strlen(pkt->req_cmd)+1;
+    memcpy(ptr,pkt->req_cmd,cmd_len);
+    
+    ptr += cmd_len;
+    return ptr - buff;
+}
+
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char *ptr = buffer;
+    
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net); // Convert back from Network Order
+    ptr += sizeof(uint32_t);
+    
+    *cmd_string = ptr; 
+}
 
 
 void* NS_listener_thread(void *arg) {
@@ -339,13 +347,35 @@ void* Handle_Client (void* arg) {
                 continue;
             }
 
+            FileLockTable *table = get_or_build_sentence_table(filename);
+            if (!table) { 
+                fclose(fp);
+                perror("get_or_build_sentence_table failed");
+                continue;
+            }
+
             char sentence[BUFFER_SIZE];
-            int idx = 0;
+            int idx = 0, sentence_idx = 0;
             int c;
+            bool lock_held = false;
 
-            while ((c = fgetc(fp)) != EOF) {
+            while (1) {
 
-                sentence[idx++] = c;
+                if (idx == 0 && sentence_idx < table->sentence_count) {
+                    pthread_rwlock_rdlock(&table->sentences[sentence_idx].lock);
+                    lock_held = true;
+                }
+
+                c = fgetc(fp);
+                if (c == EOF) {
+                    if (lock_held) {
+                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                        lock_held = false;
+                    }
+                    break;
+                }
+
+                sentence[idx++] = c; // write after acquiring lock to prevent race
 
                 // End of sentence detected
                 if (c == '.' || c == '!' || c == '?' || c == '\n') {
@@ -360,10 +390,22 @@ void* Handle_Client (void* arg) {
 
                     if (send(new_socket, send_buff, bytes_to_send,0) < 0) {
                         perror("send failed");
+                        if (lock_held) {
+                            pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                            lock_held = false;
+                        }
                         break;
                     }
+
                     usleep(500); //so that multiple packets will not be merged by tcp
+
+                    if (lock_held) {
+                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                        lock_held = false;
+                    }
+
                     idx = 0; // reset for next sentence
+                    sentence_idx++;
                 }
                 
                 if (idx >= BUFFER_SIZE - 2) {
@@ -377,6 +419,9 @@ void* Handle_Client (void* arg) {
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
                     send(new_socket, send_buff, bytes_to_send,0);
+
+                    // DON'T RELEASE LOCK HERE AS WE HAVE NOT FINISHED READING SENTENCE
+                    // IT'S JUST THAT THE BUFFER IS FULL
 
                     idx = 0;
                 }
@@ -392,6 +437,7 @@ void* Handle_Client (void* arg) {
                 int bytes_to_send = Pack(&pkt, send_buff);
                 send(new_socket, send_buff, bytes_to_send, 0);
                 usleep(500);
+                // no need to release here as lock is already released at eof or after last sentence
             }
 
             fclose(fp);
@@ -418,4 +464,59 @@ void* Handle_Client (void* arg) {
 
     close(new_socket);
     pthread_exit(NULL);
+}
+
+FileLockTable* get_or_build_sentence_table(const char *filename) {
+    pthread_mutex_lock(&master_table_lock);
+
+    // Check if already exists
+    for (int i = 0; i < file_lock_count; i++) {
+        if (strcmp(file_locks[i].filename, filename) == 0) {
+            pthread_mutex_unlock(&master_table_lock);
+            return &file_locks[i];
+        }
+    }
+
+    // Create new entry
+    FileLockTable *entry = &file_locks[file_lock_count++];
+    strcpy(entry->filename, filename);
+
+    // First pass: count sentences
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        pthread_mutex_unlock(&master_table_lock);
+        return NULL;
+    }
+
+    int c;
+    off_t pos = 0, start = 0;
+    entry->sentence_count = 0;
+    while ((c = fgetc(fp)) != EOF) {
+        if (c == '.' || c == '!' || c == '?') {
+            entry->sentence_count++;
+        }
+        pos++;
+    }
+
+    rewind(fp);
+
+    // Allocate table
+    entry->sentences = calloc(entry->sentence_count, sizeof(SentenceLock));
+    int idx = 0;
+    pos = 0; start = 0;
+
+    while ((c = fgetc(fp)) != EOF) {
+        if (c == '.' || c == '!' || c == '?') {
+            entry->sentences[idx].start = start;
+            entry->sentences[idx].end = pos;
+            pthread_rwlock_init(&entry->sentences[idx].lock, NULL);
+            idx++;
+            start = pos + 1;
+        }
+        pos++;
+    }
+
+    fclose(fp);
+    pthread_mutex_unlock(&master_table_lock);
+    return entry;
 }
