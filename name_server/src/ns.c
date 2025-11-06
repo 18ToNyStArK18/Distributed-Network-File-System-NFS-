@@ -1,6 +1,5 @@
 #include "../inc/ns.h"
 #include "../inc/ip.h"
-#include "../../cmn_inc.h"
 #include "assert.h"
 #include <pthread.h>
 #include <string.h>
@@ -339,39 +338,6 @@ void* Client_listener_thread (void *arg) {
         pthread_detach(thread_id);
     }
 }
-
-/*void* Storage_listener_thread (void *arg) {
-  int ss_fd = *(int *)arg;
-  struct sockaddr_in ss_addr;
-  socklen_t ss_len = sizeof(ss_addr);
-  char buffer[BUFFER_SIZE];
-  char *msg = "ACK - Command Received\n";
-
-  while(1) {
-  int new_ss_socket = accept(ss_fd,(struct sockaddr *)&ss_addr,&ss_len);
-  assert(new_ss_socket >=0);
-  int r = recv(ss_fd, buffer, sizeof(buffer), 0);
-  uint32_t flag =-1;
-  char *cmd_string;
-  Unpack(buffer,&flag,&cmd_string);
-  if (r <= 0) {
-  if (r == 0) { 
-  printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), NS_IP);
-  }
-  else { 
-  perror("[Thread] storage recv failed\n");
-  }
-  break;
-  }
-
-  sscanf(cmd_string, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
-  printf("%s\n",cmd_string);
-  close(new_ss_socket);
-// need to implement hash map to store these
-}
-}*/
-// In ns.c
-
 void* Storage_listener_thread (void *arg) {
     int ss_fd = *(int *)arg;
     struct sockaddr_in ss_addr;
@@ -385,7 +351,6 @@ void* Storage_listener_thread (void *arg) {
             continue;
         }
 
-        // --- FIX: Create an args struct and a new thread ---
         client_args_t* args = (client_args_t *)malloc(sizeof(client_args_t));
         if(args == NULL){
             printf("Malloc Failed\n");
@@ -396,7 +361,6 @@ void* Storage_listener_thread (void *arg) {
         args->client_socket = new_ss_socket;
         inet_ntop(AF_INET, &ss_addr.sin_addr, args->client_ip, INET_ADDRSTRLEN);
 
-        // Create the handler thread
         pthread_t thread_id;
         if (pthread_create(&thread_id, NULL, Handle_storage_server, (void*)args) != 0) {
             perror("[Main] pthread_create for SS failed");

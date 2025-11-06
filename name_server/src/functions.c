@@ -1,5 +1,4 @@
 #include "../inc/ns.h"
-#include "../../cmn_inc.h"
 #include <sys/socket.h>
 int send_to_SS(char *buff,char *ss_ip,int ss_port,int size){
     int ss_sock;
@@ -79,4 +78,104 @@ void removeusername(char *username,userdatabase *database){
     }
 
 
+}
+
+int hash_fucn(char *str){
+    long hash = 5381; // magic number
+    int c;
+    while((c= *str++)){
+        hash = ((hash << 5) + hash) + c;
+    }
+    return hash;
+}
+Hashmap *create_hashmap(int size){
+    if(size < 1)
+        return NULL;
+    Hashmap *map = (Hashmap *)malloc(sizeof(Hashmap));
+    if(map == NULL)
+        return NULL;
+    map->size = size;
+    map->buckets = (Hashnode **)malloc(sizeof(Hashnode*) * size);
+
+    memset(map->buckets,0,sizeof(Hashnode *) * size);
+    return map;
+}
+
+int add_file(Hashmap *map, char *filename, char *ip, int port){
+    long hash = hash_fucn(filename);
+    int idx = hash % map->size;
+
+    Hashnode *current = map->buckets[idx];
+    while(current != NULL){
+        if(strcmp(filename,current->filename) == 0)
+            return -1; //file name exists already
+
+    }
+    Hashnode *newnode = (Hashnode *)malloc(sizeof(Hashnode));
+    newnode->location.ss_port = port;
+    newnode->filename = strdup(filename);
+    strcpy(newnode->location.ip,ip);
+    newnode->next = map->buckets[idx];
+    map->buckets[idx] = newnode;
+    return 1;
+}
+
+filelocation* get_file_location(Hashmap *map,char *filename){
+
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+    Hashnode *current = map->buckets[index];
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            // Found it! Return a pointer to the location data.
+            return &(current->location);
+        }
+        current = current->next;
+    }
+
+}
+
+int delete_file(Hashmap *map,char *filename){
+    long hash = hash_fucn(filename);
+    int index = hash % map->size;
+
+    Hashnode *current = map->buckets[index];
+    Hashnode *prev = NULL;
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            
+            if (prev == NULL) {
+                map->buckets[index] = current->next;
+            } else {
+                prev->next = current->next;
+            }
+
+            free(current->filename);             
+            free(current);
+
+            return 1; // Done
+        }
+        prev = current;
+        current = current->next;
+    }
+    return -1;
+}
+
+void free_hashmap(Hashmap *map) {
+    if (map == NULL) return;
+
+    for (int i = 0; i < map->size; i++) {
+        Hashnode *current = map->buckets[i];
+        while (current != NULL) {
+            Hashnode *temp = current;
+            current = current->next;
+            
+            free(temp->filename);
+            free(temp);
+        }
+    }
+    
+    free(map->buckets); 
+    free(map);          
 }
