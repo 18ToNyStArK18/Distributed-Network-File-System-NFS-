@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <dirent.h>
 
 #define BUFFER_SIZE 1024
 #define RED "\x1b[31m"

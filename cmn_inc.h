@@ -75,7 +75,7 @@ int Pack(Packet* pkt , char * buff);
 #define NO_USER_SLOTS 25
 #define MAX_USERS 1024
 #define USERNAME_SIZE 1024
-
+#define REG_FILES 26
 
 #define MAX_FILE_NAME_SIZE 1024
 #define Success 67

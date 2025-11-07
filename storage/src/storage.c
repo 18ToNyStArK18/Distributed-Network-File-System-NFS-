@@ -133,6 +133,29 @@ int main() {
         return 0;
     }
     printf("Server says: %s\n",recv_buff);
+
+    // TO ADD: sending the initial list of files in storage
+    DIR* d;
+    struct dirent *dir;
+    d = opendir(".");
+
+    if (d) {
+        while ((dir = readdir(d)) != NULL) { 
+            Packet p;
+            memset(&p, 0, sizeof(p));
+            strncpy(pkt.req_cmd, dir->d_name, sizeof(pkt.req_cmd)-1);
+            pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
+            pkt.REQ_FLAG = REG_FILES;
+
+            char file_buffer[BUFFER_SIZE];
+            int file_bytes_to_send = Pack(&p, file_buffer);
+
+            send(ns_sock, file_buffer, file_bytes_to_send, 0);
+            printf("Sent file registration to Name Server: %s\n", dir->d_name);
+            usleep(10000);
+        }
+    }
+
     close(ns_sock);
 
     pthread_t ns_thread, client_thread;
