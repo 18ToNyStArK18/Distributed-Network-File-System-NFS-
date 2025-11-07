@@ -441,6 +441,7 @@ void print_details(char *filename, Hashmap *map){
                 printf("%s,",it->username);
                 it = it->next;
             }
+            printf("\n");
         }
         current = current->next;
     }

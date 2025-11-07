@@ -87,7 +87,7 @@ int main(){
     }
     assert(username_flag == Success);
     printf(GREEN"Successfully registered the username of the client\n Server Says: %s\n"NORMAL,buffer);
-    printf(GREEN"Logging in as :%s"NORMAL,user_name);
+    printf(GREEN"Logging in as :%s\n"NORMAL,user_name);
     printf(GREEN"Enter quit to exit\n\n"NORMAL);
     while(1){
         printf("Enter the command : ");

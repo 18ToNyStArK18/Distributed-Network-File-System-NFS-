@@ -85,7 +85,7 @@ void* Handle_client(void* arg){
             if(ret == 0){
                 flag = Success;
                 strcpy(username_of_client,cmd_string);
-                printf(GREEN"Client with username: %s Successfully connected\n"NORMAL,cmd_string);
+                printf(GREEN"Client with username: %s\n Successfully connected\n"NORMAL,cmd_string);
             }
             else if(ret == -1)
                 flag = USER_ACTIVE_ALR;
