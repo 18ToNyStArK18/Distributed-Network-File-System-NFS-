@@ -73,6 +73,7 @@ void removeusername(char *username,userdatabase *database){
     for(int i=0;i<database->num_of_users;i++){
         if(strcmp(username,database->username_arr[i].username)==0){
             database->username_arr[i].active = 0;
+            printf("Made USER %s In-active\n",username);
             return;
         }
     }
@@ -103,7 +104,7 @@ Hashmap *create_hashmap(int size){
 
 int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     long hash = hash_fucn(filename);
-    int idx = hash % map->size;
+    int idx = abs(hash) % map->size;
 
     Hashnode *current = map->buckets[idx];
     while(current != NULL){
@@ -126,6 +127,7 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     strcpy(newnode->location.ip,ip);
     newnode->next = map->buckets[idx];
     map->buckets[idx] = newnode;
+    printf("Added the file to the Hashmap\n");
     return 1;
 }
 
@@ -143,26 +145,21 @@ int get_file_location(Hashmap *map, char *filename, filelocation *out){
         return 0;
     }
     
-    // printf("get_file_location: calling hash_fucn\n");
     long hash = hash_fucn(filename);
-    // printf("get_file_location: hash=%ld\n", hash);
     
     int index = abs(hash) % map->size;
-    // printf("get_file_location: index=%d, map->size=%d\n", index, map->size);
     
     Hashnode *current = map->buckets[index];
-    // printf("get_file_location: current=%p\n", current);
     
     while (current != NULL) {
-        // printf("get_file_location: checking node with filename=%s\n", current->filename);
         if (strcmp(current->filename, filename) == 0) {
             // printf("get_file_location: found! copying location\n");
             *out = current->location;
+            printf("Filename: %s IP: %s Port: %d\n",filename,out->ip,out->ss_port);
             return 1;
         }
         current = current->next;
     }
-    // printf("get_file_location: not found\n");
     return 0;
 }
 
@@ -184,7 +181,7 @@ int delete_file(Hashmap *map,char *filename){
 
             free(current->filename);             
             free(current);
-
+            printf("Deleted the file from the database\n");
             return 1; // Done
         }
         prev = current;
@@ -235,6 +232,7 @@ int add_r_access(Hashmap *map,char *filename,char *username){
             strcpy(read_a->username,username);
             read_a->next=current->read;
             current->read = read_a;
+            printf("Added the read access to the file %s for the user %s\n",filename,username);
             return 1;
         }
         current = current->next;
@@ -252,6 +250,7 @@ int add_file_to_user(char *filename, char *username, userdatabase *users){
             add_file->next = users->username_arr[i].files;
             strcpy(add_file->filename,filename);
             users->username_arr[i].files = add_file;
+            printf("Added filename: %s to the files_list of the %s\n",filename,username);
             return 1;
         }
     }
@@ -273,6 +272,7 @@ int add_w_access(Hashmap *map,char *filename,char *username){
             strcpy(write_a->username,username);
             write_a->next=current->write;
             current->write = write_a;
+            printf("Added the write access to the file %s for the user %s\n",filename,username);
             return 1;
         }
         current = current->next;
@@ -328,8 +328,10 @@ int rem_access(Hashmap *map,char *filename,char *username){
                 it = it->next;
             }
 
-            if(flag)
+            if(flag){
+                printf("Removed the perms for the user: %s for the file; %s",username,filename);
                 return 1;
+            }
             else
                 return -1;
         }
@@ -431,14 +433,14 @@ void print_details(char *filename, Hashmap *map){
             printf("Read users\n-->");
             rw_access *it = current->read;
             while(it){
-                printf("%s,",it->username);
+                printf("%s ",it->username);
                 it = it->next;
             }
             //can write
             printf("\nWrite users\n-->");
             it = current->write;
             while(it){
-                printf("%s,",it->username);
+                printf("%s ",it->username);
                 it = it->next;
             }
             printf("\n");
@@ -446,7 +448,5 @@ void print_details(char *filename, Hashmap *map){
         current = current->next;
     }
     return;
-
-
 
 }

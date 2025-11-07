@@ -135,7 +135,7 @@ int main() {
     printf("Server says: %s\n",recv_buff);
 
     // TO ADD: sending the initial list of files in storage
-    DIR* d;
+    /*DIR* d;
     struct dirent *dir;
     d = opendir(".");
 
@@ -155,7 +155,7 @@ int main() {
             usleep(10000);
         }
     }
-
+    */
     close(ns_sock);
 
     pthread_t ns_thread, client_thread;
@@ -460,7 +460,7 @@ void* Handle_Client (void* arg) {
                 char send_buff[BUFFER_SIZE];
                 int bytes_to_send = Pack(&pkt, send_buff);
                 send(new_socket, send_buff, bytes_to_send, 0);
-                usleep(500);
+                usleep(10000);
                 // no need to release here as lock is already released at eof or after last sentence
             }
 

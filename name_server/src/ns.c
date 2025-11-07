@@ -103,7 +103,7 @@ void* Handle_client(void* arg){
             int num_of_users = users.num_of_users;
             Packet pkt;
             for(int i=0;i<num_of_users;i++){
-                pkt.REQ_FLAG = VIEW_DATA;
+                pkt.REQ_FLAG = LIST_DATA;
                 char message[1024];
                 char user_state[30];
                 strcpy(user_state, (users.username_arr[i].active == 0) ? "in-active" : "active");
@@ -115,7 +115,7 @@ void* Handle_client(void* arg){
                 }
                 usleep(10000);
             }
-            pkt.REQ_FLAG = VIEW_END;
+            pkt.REQ_FLAG = LIST_END;
             int bytes_to_send = Pack(&pkt,buffer);
             if(send(new_socket,buffer,bytes_to_send,0)<0){
                 printf("Error in sending the file\n");
@@ -151,7 +151,7 @@ void* Handle_client(void* arg){
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt,send_buff);
             send(new_socket,send_buff,bytes_to_send,0);
-            printf("[NS] READ_REQ received , sent the ss_ip and port\n");
+            printf("sent the ss_ip and port\n");
             }
         }
         else if(flag == CREATE_REQ){

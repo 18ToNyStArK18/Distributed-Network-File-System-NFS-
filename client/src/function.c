@@ -53,7 +53,6 @@ int client_ss_read(char *buffer,char *ip , int port,int size){
         close(ss_sock);
         return -1;
     }
-    printf("Sent the create command to the ss\n");
     char recv_buffer[1024];
     while(1){
         if(recv(ss_sock,recv_buffer,1023,0)<0){

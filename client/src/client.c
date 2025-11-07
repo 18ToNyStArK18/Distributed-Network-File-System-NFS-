@@ -32,10 +32,13 @@ void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
 int main(){
     char inp_cmd[max_inp];
     char user_name[max_username];
-    printf(GREEN"Enter your user name: "NORMAL);
+    printf("\n                       Welcome to the Docs++\n");
+    printf(RED"Enter quit to exit\n"NORMAL);
+    printf("Enter your user name: ");
     fgets(user_name,max_username,stdin);
-    user_name[strlen(user_name)-1]='\0';
-   // the tcp socket connection for the client
+    user_name[strlen(user_name)-1]='\0';//to consume the '\n' at the end of the username
+    printf("\n--------USERNAME: %s--------\n",user_name);
+    // the tcp socket connection for the client
     int client_socket;
     struct sockaddr_in server_addr;       
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -82,25 +85,23 @@ int main(){
         exit(-1);
     }
     else if(username_flag == NO_USER_SLOTS){
-        printf(RED"Number of users reached the limit\n"NORMAL);
+        printf(RED"\nNumber of users reached the limit\n"NORMAL);
         exit(-1);
     }
     assert(username_flag == Success);
-    printf(GREEN"Successfully registered the username of the client\n Server Says: %s\n"NORMAL,buffer);
-    printf(GREEN"Logging in as :%s\n"NORMAL,user_name);
-    printf(GREEN"Enter quit to exit\n\n"NORMAL);
+    printf("\nUSERNAME Successfully Stored in our database and ready to execute commands\n");
     while(1){
         printf("Enter the command : ");
         fgets(inp_cmd, max_inp-1, stdin);
         if(strcmp(inp_cmd,"quit\n")==0){
-            printf(GREEN"Exiting\n"NORMAL);
+            printf(GREEN"Bye\n"NORMAL);
             return 0;
         }
-
-
         command_str parsed;
         parsing(inp_cmd,&parsed);
+        printf("\n--------Parsed command--------\n");
         print_parsed(&parsed);
+        printf("--------------------------------\n");
         char command_type[MAX_WORD_SIZE];
         assert(parsed.n != 0); // so that the inp_cmd has more than 0 words
         strcpy(command_type,parsed.cmd[0]);
@@ -113,6 +114,7 @@ int main(){
         //based on the command_type we need to send  packets with the different flags to the NS
         if(strncmp(command_type,"LIST",4)==0){
             //list 
+            printf("[%s] Requested List\n",user_name);
             pkt.REQ_FLAG = LIST;
             int bytes_to_send = Pack(&pkt,buffer);
 
@@ -134,7 +136,7 @@ int main(){
                     continue;
                 }   
                 Unpack(recv_buff,&flag,&cmd_string);
-                if(flag != VIEW_DATA)
+                if(flag != LIST_DATA)
                     break;
                 printf("%s\n",cmd_string);
             }
@@ -142,11 +144,11 @@ int main(){
         }
         else if(strncmp(command_type,"VIEW",4)==0){
             //view 
+            printf("[%s] Requested VIEW\n",user_name);
             pkt.REQ_FLAG = VIEW;
             int bytes_to_send = Pack(&pkt,buffer);
 
             //send the packet to the Name_server
-
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
                 printf(RED"Unable to send to the server\n"NORMAL);
                 continue;
@@ -167,6 +169,7 @@ int main(){
                 continue;
             }
             assert(flag == Success);
+            printf("\n--------OUTPUT of VIEW--------\n");
             while(1){
                 if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
                     printf(RED"Error in recieving packet\n"NORMAL);
@@ -177,9 +180,11 @@ int main(){
                     break;
                 printf("%s\n",cmd_string);
             }
+            printf("---------------------------------\n");
         }
         else if(strncmp(command_type,"READ",4)==0){
             //Read a file
+            printf("[%s] Requested READ Filename: %s\n",user_name,parsed.cmd[1]);
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             pkt.REQ_FLAG = READ_REQ_NS;
             int bytes_to_send = Pack(&pkt,buffer);
@@ -210,12 +215,13 @@ int main(){
             char ss_ip[40];
             int port;
             sscanf(cmd_str,"%s %d",ss_ip,&port);
+            printf("Filename : %s located in ip : %s port : %d\n",parsed.cmd[1],ss_ip,port);
             //now i have the port and the ip of the storage server where the file is located now i need to req to that server
             Packet pkt;
             pkt.REQ_FLAG = READ_REQ_SS;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes = Pack(&pkt,buffer);
-
+            printf("\n--------FILE DATA--------\n");
             int a = client_ss_read(buffer,ss_ip,port,bytes);
             if(a==0)
                 printf(GREEN"\nReading the file is done\n"NORMAL);
@@ -225,6 +231,7 @@ int main(){
         else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file
             //the user/client who creates the file become the owner of the file
+            printf("[%s] Requested CREATE Filename : %s\n",user_name,parsed.cmd[1]);
             pkt.REQ_FLAG = CREATE_REQ;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes_to_send = Pack(&pkt,buffer);
@@ -259,6 +266,7 @@ int main(){
         }
         else if(strncmp(command_type,"INFO",4)==0){
             //For the INFO
+            printf("[%s] Requested INFO Filename: %s\n",user_name,parsed.cmd[1]);
             pkt.REQ_FLAG = INFO;
             int bytes_to_send = Pack(&pkt,buffer);
 
@@ -284,6 +292,7 @@ int main(){
                 continue;
             }
             assert(flag == Success);
+            printf("\n--------INFO DATA--------\n");
             while(1){
                 if(recv(client_socket,recv_buff,BUFFER_SIZE,0)< 0){
                     printf(RED"Error in recieving packet\n"NORMAL);
@@ -295,21 +304,24 @@ int main(){
                 else
                     printf("%s",cmd_string);
             }
+            printf("---------------------------\n");
 
         }
         else if(strncmp(command_type,"DELETE",6)==0){
             //Deleing a file
+            printf("[%s] Requested DELETE Filename : %s",user_name,parsed.cmd[1]);
             pkt.REQ_FLAG = DELETE;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             int bytes_to_send = Pack(&pkt,buffer);
 
             //send the packet to the Name_server
-
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){
                 printf(RED"Unable to send to the server\n"NORMAL);
                 continue;
             }
+
             printf(GREEN"Packet sent Successfully\n"NORMAL); 
+            
             //response from the Name_server
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff,0,BUFFER_SIZE);
@@ -333,6 +345,7 @@ int main(){
         }
         else if(strncmp(command_type,"STREAM",6)==0){
             //Stream the file
+            printf("[%s] Requested STREAM Filename: %s\n",user_name,parsed.cmd[1]);
             pkt.REQ_FLAG = STREAM;
             int bytes_to_send = Pack(&pkt,buffer);
 
@@ -369,10 +382,14 @@ int main(){
         }
         else if(strncmp(command_type,"ADDACCESS",9)==0){
             //Adding access to users for read and write perms
-            if(strcmp(parsed.cmd[1],"-R")==0)
+            if(strcmp(parsed.cmd[1],"-R")==0){
                 pkt.REQ_FLAG = ADDACCESS_r;
-            else
+                printf("[%s] Requested ADDACCESS_r to Filename: %s for User: %s\n",user_name,parsed.cmd[2],parsed.cmd[3]);
+            }
+            else{
                 pkt.REQ_FLAG = ADDACCESS_w;
+                printf("[%s] Requested ADDACCESS_w to Filename: %s for User: %s\n",user_name,parsed.cmd[2],parsed.cmd[3]);
+            }
             int bytes_to_send = Pack(&pkt,buffer);
 
             //send the packet to the Name_server
@@ -402,6 +419,7 @@ int main(){
             pkt.REQ_FLAG = REMACCESS;
             int bytes_to_send = Pack(&pkt,buffer);
 
+            printf("[%s] Requested REMACCESS to Filename: %s for User: %s\n",user_name,parsed.cmd[2],parsed.cmd[3]);
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){

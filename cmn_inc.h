@@ -57,6 +57,8 @@ int Pack(Packet* pkt , char * buff);
 #define STREAM_DATA 141
 #define STREAM_END 142
 #define LIST 15
+#define LIST_DATA 151
+#define LIST_END 152
 #define ADDACCESS_r 16
 #define ADDACCESS_w 17
 #define REMACCESS 18
