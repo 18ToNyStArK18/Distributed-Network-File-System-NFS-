@@ -114,7 +114,6 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     Hashnode *newnode = (Hashnode *)malloc(sizeof(Hashnode));
     newnode->location.ss_port = port;
     newnode->filename = strdup(filename);
-    printf("Filename %s\n",filename);
     rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
     rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
     strcpy(read_a->username,username);
@@ -211,7 +210,16 @@ void free_hashmap(Hashmap *map) {
     free(map->buckets); 
     free(map);          
 }
+int alr_has_access(rw_access *rw , char *username){
+    rw_access *it = rw;
+    while(rw){
+        if(strcmp(it->username,username)==0)
+            return 1;
+        rw=rw->next;
+    }
+    return -1;
 
+}
 int add_r_access(Hashmap *map,char *filename,char *username){
     long hash = hash_fucn(filename);
     int index = abs(hash) % map->size;
@@ -222,6 +230,8 @@ int add_r_access(Hashmap *map,char *filename,char *username){
         if (strcmp(current->filename, filename) == 0) {
             
             rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
+            if(alr_has_access(current->read,username)==1)
+                return 1;
             strcpy(read_a->username,username);
             read_a->next=current->read;
             current->read = read_a;
@@ -257,11 +267,12 @@ int add_w_access(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
-
+            if(alr_has_access(current->write,username)==1)
+                return 1;
             rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
             strcpy(write_a->username,username);
             write_a->next=current->write;
-            current->read = write_a;
+            current->write = write_a;
             return 1;
         }
         current = current->next;
@@ -334,10 +345,8 @@ int can_read(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
-            printf("FOUND file\n");
             rw_access *it = current->read;
             while(it != NULL){
-                printf("it->username: %s\n",it->username);
                 if(strcmp(it->username,username)==0){
                     return 1;
                 }

@@ -75,7 +75,8 @@ void* Handle_client(void* arg){
         uint32_t flag = -1;
         char * cmd_string;
         Unpack(buffer, &flag, &cmd_string);
-        printf("FILENAME aaahhhh %s\n",cmd_string);
+
+        printf("\n[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, cmd_string);
         if(flag == USER_REG){ 
             //1) need to find if the username is already present if yes make the active flag 1 if its already 1 error
             //2) If we username is not there then add the username and when the client disconnects dont forget to make the active to 0
@@ -126,20 +127,16 @@ void* Handle_client(void* arg){
             //no need to send the packet to the storage server we just need to send the ip and port of the storage to the client
             Packet pkt;
             //if file found
-            printf("before\n");
             if(hash == NULL) {
                 pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 printf("Hashmap not intitalized!\n");
             }
             else{
-            printf("Hashmap intitalized!\n");
             filelocation loc;
             char filename[MAX_FILE_NAME_SIZE];
             strcpy(filename,cmd_string);
             print_details(filename,hash);
             if (get_file_location(hash,filename, &loc)) {
-                printf("after\n");
-                printf("%s\n",filename);
                 if(can_read(hash,filename,username_of_client)==-1)
                     pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 else{
@@ -160,12 +157,9 @@ void* Handle_client(void* arg){
         else if(flag == CREATE_REQ){
             //we need to send a packet to the storage server so that it can create the files in that storege server
             //we need to add that file in our ns database where we are storing the files present in a storage server
-            strcpy(msg,"ACK for the CREATE_REQ");
             //need to send the same buffer to the storage server with the ss_ip and ns_port
-            printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
             char filename[MAX_FILE_NAME_SIZE];
             strcpy(filename,cmd_string);
-            printf("FILENAME : %s\n",filename);
             printf("Sending the packet to the ss\n");
             int a = send_to_SS(buffer,ss_ip,ns_port,bytes);
             printf("Sending the ack to the client\n");
@@ -176,6 +170,7 @@ void* Handle_client(void* arg){
                 printf("send the ack to the client is failed\n");
                 continue;
             }
+            printf("Sent Successfully\n");
             if(!a){
                if(add_file(hash,filename,ss_ip,client_port,username_of_client)==-1){
                     printf("Error in storing the file in the Hashmap\n");
@@ -193,8 +188,6 @@ void* Handle_client(void* arg){
         }
         else if(flag == DELETE){
             //need to send the packet to ss and then update it in the ns database
-            strcpy(msg,"ACK for the DELETE");
-            printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
             printf("Sending the packet to the ss\n");
             int a = send_to_SS(buffer,ss_ip,ns_port,bytes);
             printf("Sending the ack to the client\n");
@@ -239,7 +232,6 @@ void* Handle_client(void* arg){
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
             sscanf(cmd_string,"ADDACCESS -R %s %s\n",filename,username);
-            printf("\nFILNAME : %s USERNAME : %s,\n",filename,username);
             //need to add a cond to check is he the owner of the file
             int a = add_r_access(hash,filename,username);
             if(a==1)
@@ -258,13 +250,13 @@ void* Handle_client(void* arg){
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
             sscanf(cmd_string,"ADDACCESS -W %s %s\n",filename,username);
-            printf("\nFILNAME : %s USERNAME : %s,\n",filename,username);
-
 
             //need to add a cond to check is he the owner of the file
             int a = add_w_access(hash,filename,username);
             Packet pkt;
             pkt.REQ_FLAG = a == 1 ? Success : Fail;
+            if(a==1)
+                add_file_to_user(filename,username,&users);
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt,send_buff);
             if(send(new_socket,send_buff,bytes_to_send,0) < 0){
@@ -311,7 +303,6 @@ void* Handle_client(void* arg){
         }
 
 
-        printf("\n[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, cmd_string);
     }
 
     close(new_socket);
