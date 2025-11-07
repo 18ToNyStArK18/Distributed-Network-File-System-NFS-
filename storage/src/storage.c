@@ -473,6 +473,7 @@ void* Handle_Client (void* arg) {
 
             char end_buff[BUFFER_SIZE];
             int bytes = Pack(&end, end_buff);
+            usleep(10000);
             send(new_socket, end_buff, bytes,0);
 
             printf("Sent READ_END\n");

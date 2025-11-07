@@ -113,10 +113,11 @@ void* Handle_client(void* arg){
                 if(send(new_socket,buffer,bytes_to_send,0)<0){
                     printf("Error in sending the file\n");
                 }
-                usleep(10000);
+                usleep(100000);
             }
             pkt.REQ_FLAG = LIST_END;
             int bytes_to_send = Pack(&pkt,buffer);
+            usleep(10000);
             if(send(new_socket,buffer,bytes_to_send,0)<0){
                 printf("Error in sending the file\n");
             }
