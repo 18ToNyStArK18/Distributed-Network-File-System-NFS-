@@ -75,6 +75,7 @@ void* Handle_client(void* arg){
         uint32_t flag = -1;
         char * cmd_string;
         Unpack(buffer, &flag, &cmd_string);
+        printf("FILENAME aaahhhh %s\n",cmd_string);
         if(flag == USER_REG){ 
             //1) need to find if the username is already present if yes make the active flag 1 if its already 1 error
             //2) If we username is not there then add the username and when the client disconnects dont forget to make the active to 0
@@ -133,9 +134,12 @@ void* Handle_client(void* arg){
             else{
             printf("Hashmap intitalized!\n");
             filelocation loc;
-            if (get_file_location(hash,cmd_string, &loc)) {
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            if (get_file_location(hash,filename, &loc)) {
                 printf("after\n");
-                if(can_read(hash,cmd_string,username_of_client)==-1)
+                printf("%s\n",filename);
+                if(can_read(hash,filename,username_of_client)==-1)
                     pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 else{
                     pkt.REQ_FLAG = SS_IP_PORT;
@@ -158,6 +162,9 @@ void* Handle_client(void* arg){
             strcpy(msg,"ACK for the CREATE_REQ");
             //need to send the same buffer to the storage server with the ss_ip and ns_port
             printf("[Thread %ld] Client %s Flag: %u, Cmd: %s", pthread_self(), client_ip, flag, cmd_string);
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            printf("FILENAME : %s\n",filename);
             printf("Sending the packet to the ss\n");
             int a = send_to_SS(buffer,ss_ip,ns_port,bytes);
             printf("Sending the ack to the client\n");
@@ -169,9 +176,11 @@ void* Handle_client(void* arg){
                 continue;
             }
             if(!a){
-               if(add_file(hash,cmd_string,ss_ip,client_port,username_of_client)==-1){
+               if(add_file(hash,filename,ss_ip,client_port,username_of_client)==-1){
                     printf("Error in storing the file in the Hashmap\n");
                 }
+               printf("Printing the hashmap\n");
+               print(hash);
             }
 
         }

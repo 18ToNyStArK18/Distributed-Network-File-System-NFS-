@@ -114,12 +114,15 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     Hashnode *newnode = (Hashnode *)malloc(sizeof(Hashnode));
     newnode->location.ss_port = port;
     newnode->filename = strdup(filename);
+    printf("Filename %s\n",filename);
     rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
     rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
     strcpy(read_a->username,username);
     strcpy(write_a->username,username);
-    read_a->next = NULL;
-    write_a->next = NULL;
+    read_a->next = newnode->read;
+    write_a->next = newnode->write;
+    newnode->read = read_a;
+    newnode->write = write_a;
     strcpy(newnode->Owner,username);
     strcpy(newnode->location.ip,ip);
     newnode->next = map->buckets[idx];
@@ -331,9 +334,10 @@ int can_read(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
-
+            printf("FOUND file\n");
             rw_access *it = current->read;
             while(it != NULL){
+                printf("it->username: %s\n",it->username);
                 if(strcmp(it->username,username)==0){
                     return 1;
                 }
@@ -390,4 +394,17 @@ int delete_file_from_user(char *filename, char *username, userdatabase *users){
         }
     }
     return -1;
+}
+void print(Hashmap *map){
+    
+    int size = map->size;
+    for(int i=0;i<size;i++){
+        Hashnode *curr = map->buckets[i];
+        while(curr != NULL){
+            printf("%s\n",curr->filename);
+            curr = curr->next;
+        }
+    }
+
+
 }

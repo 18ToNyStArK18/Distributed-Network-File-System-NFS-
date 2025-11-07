@@ -67,3 +67,4 @@ int can_read(Hashmap *map,char *filename,char *username);
 int can_write(Hashmap *map,char *filename,char *username);
 int add_file_to_user(char *filename,char *username,userdatabase *users);
 int delete_file_from_user(char *filename,char *username,userdatabase *users);
+void print(Hashmap *map);

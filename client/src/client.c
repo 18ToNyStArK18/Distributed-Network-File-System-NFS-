@@ -179,6 +179,7 @@ int main(){
         }
         else if(strncmp(command_type,"READ",4)==0){
             //Read a file
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
             pkt.REQ_FLAG = READ_REQ_NS;
             int bytes_to_send = Pack(&pkt,buffer);
 
