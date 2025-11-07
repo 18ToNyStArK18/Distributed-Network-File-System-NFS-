@@ -136,6 +136,7 @@ void* Handle_client(void* arg){
             filelocation loc;
             char filename[MAX_FILE_NAME_SIZE];
             strcpy(filename,cmd_string);
+            print_details(filename,hash);
             if (get_file_location(hash,filename, &loc)) {
                 printf("after\n");
                 printf("%s\n",filename);
@@ -237,8 +238,8 @@ void* Handle_client(void* arg){
             //change in the database directly and send the ack back
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
-            sscanf(cmd_string,"ADDACCESS -R %s %s",filename,username);
-
+            sscanf(cmd_string,"ADDACCESS -R %s %s\n",filename,username);
+            printf("\nFILNAME : %s USERNAME : %s,\n",filename,username);
             //need to add a cond to check is he the owner of the file
             int a = add_r_access(hash,filename,username);
             if(a==1)
@@ -256,7 +257,9 @@ void* Handle_client(void* arg){
             //same as prev
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
-            sscanf(cmd_string,"ADDACCESS -W %s %s",filename,username);
+            sscanf(cmd_string,"ADDACCESS -W %s %s\n",filename,username);
+            printf("\nFILNAME : %s USERNAME : %s,\n",filename,username);
+
 
             //need to add a cond to check is he the owner of the file
             int a = add_w_access(hash,filename,username);

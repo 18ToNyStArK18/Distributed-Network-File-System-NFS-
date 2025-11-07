@@ -3,7 +3,7 @@
 
 void parsing(char *inp_cmd,command_str* command_struct){
     // initializing the command_struct
-    memset(command_struct,0,sizeof(command_str));
+    memset(command_struct,0,sizeof(command_struct));
     int inp_size = strlen(inp_cmd);
     int i = 0;
     while(i < inp_size){

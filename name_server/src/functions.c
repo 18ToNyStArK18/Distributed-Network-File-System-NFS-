@@ -408,3 +408,35 @@ void print(Hashmap *map){
 
 
 }
+void print_details(char *filename, Hashmap *map){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            printf("Filename:%s\n",filename);
+            printf("--> SS_IP : %s  SS_PORT : %d\n",current->location.ip,current->location.ss_port);
+            //can read
+            printf("Read users\n-->");
+            rw_access *it = current->read;
+            while(it){
+                printf("%s,",it->username);
+                it = it->next;
+            }
+            //can write
+            printf("\nWrite users\n-->");
+            it = current->write;
+            while(it){
+                printf("%s,",it->username);
+                it = it->next;
+            }
+        }
+        current = current->next;
+    }
+    return;
+
+
+
+}

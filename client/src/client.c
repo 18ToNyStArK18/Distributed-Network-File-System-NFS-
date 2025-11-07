@@ -34,6 +34,7 @@ int main(){
     char user_name[max_username];
     printf(GREEN"Enter your user name: "NORMAL);
     fgets(user_name,max_username,stdin);
+    user_name[strlen(user_name)-1]='\0';
    // the tcp socket connection for the client
     int client_socket;
     struct sockaddr_in server_addr;       
