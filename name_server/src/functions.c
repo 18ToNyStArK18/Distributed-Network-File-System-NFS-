@@ -1,49 +1,73 @@
 #include "../inc/ns.h"
 #include <sys/socket.h>
-int send_to_SS(char *buff,char *ss_ip,int ss_port,int size){
+int send_to_SS(char *buff, char *ss_ip, int ss_port, int size) {
+
     int ss_sock;
     struct sockaddr_in ss_addr;
-    if((ss_sock = socket(AF_INET,SOCK_STREAM,0))<0){
-        printf("Failed to create a socket\n");
+
+    if ((ss_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("Failed to create socket\n");
         return -1;
     }
+
     ss_addr.sin_family = AF_INET;
     ss_addr.sin_port = htons(ss_port);
 
-    if (inet_pton(AF_INET,ss_ip,&ss_addr.sin_addr) <= 0){
+    if (inet_pton(AF_INET, ss_ip, &ss_addr.sin_addr) <= 0) {
         printf("Invalid IP\n");
         close(ss_sock);
         return -1;
     }
 
-    if(connect(ss_sock,(struct sockaddr *)&ss_addr,sizeof(ss_addr))<0){
-        printf("Connection Failed\n");
+    if (connect(ss_sock, (struct sockaddr *)&ss_addr, sizeof(ss_addr)) < 0) {
+        printf("Connection failed\n");
         close(ss_sock);
         return -1;
     }
 
-    if(send(ss_sock,buff,size,0) < 0){
-        printf("Sending failed\n");
+    uint32_t net_len = htonl(size);
+    if (send_all(ss_sock, &net_len, sizeof(net_len)) <= 0) {
+        printf("Send length failed\n");
         close(ss_sock);
         return -1;
     }
-    printf("Sent the create command to the ss\n");
-    char recv_buffer[1024];
-    if(recv(ss_sock,recv_buffer,1023,0)<0){
-        printf("Error in recieving packet\n");
+
+    if (send_all(ss_sock, buff, size) <= 0) {
+        printf("Send data failed\n");
         close(ss_sock);
-        return -1;    
+        return -1;
     }
-    //unpacking logic
+
+    printf("Sent request to SS (%s:%d)\n", ss_ip, ss_port);
+
+    uint32_t reply_len_net;
+    if (recv_all(ss_sock, &reply_len_net, sizeof(reply_len_net)) <= 0) {
+        printf("Recv length failed\n");
+        close(ss_sock);
+        return -1;
+    }
+
+    int reply_len = ntohl(reply_len_net);
+    if (reply_len > BUFFER_SIZE) {
+        printf("Reply too large\n");
+        close(ss_sock);
+        return -1;
+    }
+
+    char recv_buffer[BUFFER_SIZE];
+    if (recv_all(ss_sock, recv_buffer, reply_len) <= 0) {
+        printf("Recv reply failed\n");
+        close(ss_sock);
+        return -1;
+    }
+
     uint32_t flag;
     char *cmd_str;
+    Unpack(recv_buffer, &flag, &cmd_str);
 
-    Unpack(recv_buffer,&flag,&cmd_str);
     close(ss_sock);
-    if(flag == Success)
-        return 0;
-    else
-        return -1;
+
+    return (flag == Success) ? 0 : -1;
 }
 int reg_user(char * username, userdatabase *users){
     int user_idx = -1;

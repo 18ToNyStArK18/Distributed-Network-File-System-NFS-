@@ -1,4 +1,40 @@
+# Compiled object files
 *.o
-./client/client
-./storage/storage
-./name_server/NS
+*.obj
+
+# Compiled static and shared libraries
+*.a
+*.so
+*.so.*
+*.dll
+
+# Executables / Binaries
+*.out
+*.exe
+*.elf
+*/build/
+*/bin/
+*/dist/
+
+# Ignore any file with no extension inside subfolders (common for compiled output)
+**/NS
+**/client
+**/storage
+
+# Debug files
+*.gch
+*.pch
+*.dSYM/
+*.stackdump
+
+# Editor / IDE files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
