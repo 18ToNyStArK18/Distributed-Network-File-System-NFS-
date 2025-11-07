@@ -419,7 +419,7 @@ int main(){
             pkt.REQ_FLAG = REMACCESS;
             int bytes_to_send = Pack(&pkt,buffer);
 
-            printf("[%s] Requested REMACCESS to Filename: %s for User: %s\n",user_name,parsed.cmd[2],parsed.cmd[3]);
+            printf("[%s] Requested REMACCESS to Filename: %s for User: %s\n", user_name, parsed.cmd[1], parsed.cmd[2]);
             //send the packet to the Name_server
 
             if(send(client_socket,buffer,bytes_to_send , 0) <= 0){

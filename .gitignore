@@ -1,0 +1,4 @@
+*.o
+./client/client
+./storage/storage
+./name_server/NS
