@@ -470,6 +470,7 @@ int main(){
         else if(strncmp(command_type,"DELETE",6)==0){
             printf("[%s] Requested DELETE Filename : %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = DELETE;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
 
             int payload_len = Pack(&pkt, buffer);
 
