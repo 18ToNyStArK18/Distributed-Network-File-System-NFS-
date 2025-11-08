@@ -216,6 +216,7 @@ void* Handle_client(void* arg){
                 
                     if (can_read(hash, filename, username_of_client) == -1) {
                         pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                        printf("NO ACCESS\n");
                     }
                     else {
                         pkt.REQ_FLAG = SS_IP_PORT;
@@ -223,6 +224,7 @@ void* Handle_client(void* arg){
                     }
                 } 
                 else {
+                    printf("NO FILE\n");
                     pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 }
             }

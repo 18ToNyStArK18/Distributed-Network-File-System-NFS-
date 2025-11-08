@@ -309,7 +309,7 @@ int main(){
         else if(strncmp(command_type,"READ",4)==0){
             printf("[%s] Requested READ Filename: %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = READ_REQ_NS;
-                
+            strcpy(pkt.req_cmd, parsed.cmd[1]);   
             int payload_len = Pack(&pkt, buffer);
                 
             // send [length][packet] to NS
@@ -347,7 +347,7 @@ int main(){
             // Send READ request directly to SS
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = READ_REQ_SS;
-            strncpy(pkt.req_cmd, parsed.cmd[1], sizeof(pkt.req_cmd)-1);
+            strcpy(pkt.req_cmd, parsed.cmd[1]);
             payload_len = Pack(&pkt, buffer);
         
             printf("\n--------FILE DATA--------\n");
