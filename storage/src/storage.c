@@ -585,6 +585,177 @@ void* Handle_Client (void* arg) {
         }
         else if (flag == STREAM) {
             // send contents of file line by line
+            FILE* fp = fopen(filename, "r");
+            if (fp == NULL) {
+                perror("Error opening file");
+                continue;
+            }
+
+            FileLockTable *table = get_or_build_sentence_table(filename);
+            if (!table) {
+                fclose(fp);
+                perror("get_or_build_sentence_table failed");
+                continue;
+            }
+
+            char sentence[BUFFER_SIZE];
+            int idx = 0, sentence_idx = 0;
+            int c;
+            bool lock_held = false;
+
+            while (1) {
+                // Lock at the START of a sentence (before reading its first char)
+                if (idx == 0 && sentence_idx < table->sentence_count) {
+                    pthread_rwlock_rdlock(&table->sentences[sentence_idx].lock);
+                    lock_held = true;
+                }
+
+                c = fgetc(fp);
+                if (c == EOF) {
+                    if (lock_held) {
+                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                        lock_held = false;
+                    }
+                    break;
+                }
+
+                sentence[idx++] = c;  // we are under the sentence lock here
+
+                // End of sentence?
+                if (c == '.' || c == '!' || c == '?' || c == '\n') {
+                    sentence[idx] = '\0';
+                    char word[100];
+                    int sentence_idx = 0;
+                    int word_indx =0;
+                    Packet pkt;
+                    memset(&pkt, 0, sizeof(pkt));
+                    pkt.REQ_FLAG = STREAM_DATA;
+                    while(sentence_idx < idx){
+                        while(sentence[sentence_idx] != ' ' && sentence_idx < idx){
+                            word[word_indx++]=sentence[sentence_idx++];
+                        }
+                        word[word_indx]='\0';
+                        word_indx = 0;
+                        char send_buff[BUFFER_SIZE];
+                        strcpy(pkt.req_cmd,word);
+                        int bytes_to_send = Pack(&pkt, send_buff);
+
+                        uint32_t net_len = htonl(bytes_to_send);
+
+                        if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                            printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                        }
+
+                        if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                            perror("send_all failed");
+                            if (lock_held) {
+                                pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                                lock_held = false;
+                            }
+                            break;
+                        }
+                        usleep(100000);
+                    }
+                    // Release the sentence lock now that it’s fully sent
+                    if (lock_held) {
+                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                        lock_held = false;
+                    }
+
+                    idx = 0;
+                    sentence_idx++;
+                }
+
+                // Very long sentence chunking (keep the SAME lock held)
+                if (idx >= BUFFER_SIZE - 2) {
+                    sentence[idx] = '\0';
+
+                    Packet pkt;
+                    memset(&pkt, 0, sizeof(pkt));
+                    pkt.REQ_FLAG = STREAM_DATA;
+
+                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
+
+                    char send_buff[BUFFER_SIZE];
+                    int bytes_to_send = Pack(&pkt, send_buff);
+
+                    uint32_t net_len = htonl(bytes_to_send);
+
+                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                    }
+
+                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                        perror("send_all failed");
+                        // do NOT unlock here, same sentence still in progress
+                        break;
+                    }
+
+                    idx = 0;  // continue SAME sentence under the same lock
+                }
+            }
+
+            // Tail without terminal punctuation
+            if (idx > 0) {
+                sentence[idx] = '\0';
+                char word[100];
+                int word_indx =0;
+
+                Packet pkt;
+                memset(&pkt, 0, sizeof(pkt));
+                pkt.REQ_FLAG = STREAM_DATA;
+                strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
+                while(sentence_idx < idx){
+                    while(sentence[sentence_idx] != ' ' && sentence_idx < idx){
+                        word[word_indx++]=sentence[sentence_idx++];
+                    }
+                    word[word_indx]='\0';
+                    word_indx = 0;
+                    char send_buff[BUFFER_SIZE];
+                    strcpy(pkt.req_cmd,word);
+                    int bytes_to_send = Pack(&pkt, send_buff);
+
+                    uint32_t net_len = htonl(bytes_to_send);
+
+                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                    }
+
+                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                        perror("send_all failed");
+                        if (lock_held) {
+                            pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                            lock_held = false;
+                        }
+                        break;
+                    }
+                    usleep(100000);
+                }
+
+                if (lock_held) {
+                    pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                    lock_held = false;
+                }
+            }
+
+            fclose(fp);
+
+            // Send STREAM_END
+            Packet end;
+            memset(&end, 0, sizeof(end));
+            end.REQ_FLAG = STREAM_END;
+
+            char end_buff[BUFFER_SIZE];
+            int end_len = Pack(&end, end_buff);
+            uint32_t net_len = htonl(end_len);
+
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+            }
+            send_all(new_socket, end_buff, end_len);
+
+            printf("Sent READ_END\n");
+
         }
     }
 

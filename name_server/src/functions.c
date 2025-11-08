@@ -1,4 +1,5 @@
 #include "../inc/ns.h"
+#include <stdint.h>
 #include <sys/socket.h>
 
 int send_to_SS(char *buff, char *ss_ip, int ss_port, int size) {
@@ -270,7 +271,12 @@ int add_file_to_user(char *filename, char *username, userdatabase *users){
     int n = users->num_of_users;
     for (int i=0;i<n;i++){
         if(strcmp(username,users->username_arr[i].username)==0){
-
+            filename_foruser *it = users->username_arr[i].files;
+            while(it){
+                if(strcmp(it->filename,filename)==0)
+                    return 1;
+                it = it->next;
+            }
             filename_foruser *add_file = (filename_foruser *)malloc(sizeof(filename_foruser));
             add_file->next = users->username_arr[i].files;
             strcpy(add_file->filename,filename);
@@ -474,4 +480,210 @@ void print_details(char *filename, Hashmap *map){
     }
     return;
 
+}
+void print_file_data(Hashmap *map,char *filename,char *buffer){
+   long hash = hash_fucn(filename);
+   int index = abs(hash) % map->size;
+
+   Hashnode *current = map->buckets[index];
+
+   while(current){
+        if(strcmp(current->filename,filename)==0){
+            //print the details of the file
+            sprintf(buffer,"|%s\t|%d\t|%d\t|%s\t|%s\t|\n",filename,current->wc,current->chars,current->time,current->Owner);
+            return;
+        }
+    }
+   printf("NOOO\n");
+}
+void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l, int socket){
+    if(!a){
+        int n=users->num_of_users;
+        for(int i=0;i<n;i++){
+            if(strcmp(users->username_arr[i].username,username)==0){
+                printf("Found the user\n");
+                char buffer[2048],filename[MAX_FILE_NAME_SIZE];
+                filename_foruser *fl = users->username_arr[i].files;
+                Packet pkt;
+                pkt.REQ_FLAG = VIEW_DATA;
+                while(fl){
+                    strcpy(filename,fl->filename);
+                    if(!l){
+                        sprintf(buffer,"-->%s\n",filename);
+                    }
+                    else{
+                        print_file_data(map,filename, buffer);
+                    }
+                    strcpy(pkt.req_cmd,buffer);
+
+                    int bytes_to_send = Pack(&pkt,buffer);
+                    uint32_t net_len = htonl(bytes_to_send);
+
+                    if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                        printf(RED"ERROR\n"NORMAL);
+                    }
+                    if(send_all(socket,buffer,bytes_to_send) <= 0){
+                        printf(RED"ERROR\n"NORMAL);
+                    }
+                    fl = fl->next;
+                }
+            }
+        }
+    }
+    else{
+        int sz = map->size;
+        Packet pkt;
+        pkt.REQ_FLAG = VIEW_DATA;
+        char filename[MAX_FILE_NAME_SIZE];
+        char buffer[2048];
+        for(int i=0;i<sz;i++){
+            Hashnode *current = map->buckets[i];
+            while(current){
+                strcpy(filename,current->filename);
+                if(!l){
+                    sprintf(buffer,"-->%s\n",filename);
+                }
+                else{
+                    print_file_data(map,filename, buffer);
+                }
+                strcpy(pkt.req_cmd,buffer);
+
+                int bytes_to_send = Pack(&pkt,buffer);
+                uint32_t net_len = htonl(bytes_to_send);
+
+                if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                if(send_all(socket,buffer,bytes_to_send) <= 0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                current = current->next;
+            }
+        }
+    }
+
+    Packet pkt;
+    pkt.REQ_FLAG = VIEW_END;
+    char buffer[BUFFER_SIZE];
+    int bytes_to_send = Pack(&pkt,buffer);
+    uint32_t net_len = htonl(bytes_to_send);
+
+    if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+        printf(RED"ERROR\n"NORMAL);
+    }
+    if(send_all(socket,buffer,bytes_to_send) <= 0){
+        printf(RED"ERROR\n"NORMAL);
+    }
+    printf("Success\n");
+    return;
+}
+int is_owner(char *username, char *filename,Hashmap *map){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+
+           if(strcmp(current->Owner,username)==0)
+               return 1;
+            return -1;
+        }
+        current = current->next;
+    }
+    return -1;
+}
+void print_info(Hashmap *map, char *filename, int socket){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            char buffer[1024];
+            Packet pkt;
+            pkt.REQ_FLAG = INFO_DATA;
+            sprintf(buffer,"Filename: %s  Owner: %s  Wordcount: %d  Size: %d LAST-ACCESS: %s\nREAD -->",current->filename,current->Owner,current->wc,current->chars,current->time);
+            strcpy(pkt.req_cmd,buffer);
+            int bytes_to_send = Pack(&pkt,buffer);
+            uint32_t net_len = htonl(bytes_to_send);
+
+            if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+            if(send_all(socket,buffer,bytes_to_send) <= 0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+
+            rw_access *it = current->read;
+            while(it){
+                sprintf(buffer,"%s|",it->username);
+                strcpy(pkt.req_cmd,buffer);
+                bytes_to_send = Pack(&pkt,buffer);
+                net_len = htonl(bytes_to_send);
+
+                if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                if(send_all(socket,buffer,bytes_to_send) <= 0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                it=it->next;
+            }
+            sprintf(buffer,"\nWRITE-->");
+            strcpy(pkt.req_cmd,buffer);
+            bytes_to_send = Pack(&pkt,buffer);
+            net_len = htonl(bytes_to_send);
+
+            if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+            if(send_all(socket,buffer,bytes_to_send) <= 0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+            it = current->write; 
+            while(it){
+                sprintf(buffer,"%s|",it->username);
+                strcpy(pkt.req_cmd,buffer);
+                bytes_to_send = Pack(&pkt,buffer);
+                net_len = htonl(bytes_to_send);
+
+                if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                if(send_all(socket,buffer,bytes_to_send) <= 0){
+                    printf(RED"ERROR\n"NORMAL);
+                }
+                it=it->next;
+            }
+
+            pkt.REQ_FLAG = INFO_END;
+            bytes_to_send = Pack(&pkt,buffer);
+            net_len = htonl(bytes_to_send);
+
+            if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+            if(send_all(socket,buffer,bytes_to_send) <= 0){
+                printf(RED"ERROR\n"NORMAL);
+            }
+            return;
+        }
+        current = current->next;
+    }
+    char buffer[BUFFER_SIZE];
+    Packet pkt;
+    int bytes_to_send;
+    uint32_t net_len;
+    pkt.REQ_FLAG = INFO_END;
+    bytes_to_send = Pack(&pkt,buffer);
+    net_len = htonl(bytes_to_send);
+    if(send_all(socket,&net_len,sizeof(net_len)) <=0){
+        printf(RED"ERROR\n"NORMAL);
+    }
+    if(send_all(socket,buffer,bytes_to_send) <= 0){
+        printf(RED"ERROR\n"NORMAL);
+    }
 }

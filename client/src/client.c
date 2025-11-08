@@ -226,8 +226,22 @@ int main(){
         else if(strncmp(command_type,"VIEW",4)==0){
             //view
             printf("[%s] Requested VIEW\n", user_name);
-            pkt.REQ_FLAG = VIEW;
-
+            char view_type[5];
+            if(parsed.n != 1)
+                strcpy(view_type,parsed.cmd[1]);
+            if(parsed.n==1)
+                pkt.REQ_FLAG = VIEW_N;
+            else if(strcmp(view_type,"-a")==0)
+                pkt.REQ_FLAG = VIEW_A;
+            else if(strcmp(view_type,"-l")==0)
+                pkt.REQ_FLAG = VIEW_L;
+            else if(strcmp(view_type,"-la")==0 || strcmp(view_type,"-al")==0)
+                pkt.REQ_FLAG = VIEW_AL;
+            else{
+               printf(RED"UNKNOWN FLAG\n"NORMAL);
+               continue;
+            }
+            strcpy(pkt.req_cmd,inp_cmd);
             int payload_len = Pack(&pkt, buffer);
 
             // send length
@@ -240,39 +254,13 @@ int main(){
 
             // Receive first response (Success or Fail)
             uint32_t resp_len_net;
-            if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
-                printf(RED "Error receiving VIEW response\n" NORMAL);
-                continue;
-            }
-        
-            uint32_t resp_len = ntohl(resp_len_net);
-            if (resp_len > BUFFER_SIZE) {
-                printf(RED "VIEW packet too large\n" NORMAL);
-                continue;
-            }
-        
-            char recv_buff[BUFFER_SIZE];
-            if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
-                printf(RED "Error receiving VIEW response packet\n" NORMAL);
-                continue;
-            }
-        
-            uint32_t flag;
+            uint32_t resp_len,flag;
             char *cmd_string;
-            Unpack(recv_buff, &flag, &cmd_string);
-        
-            if (flag == Fail) {
-                printf(RED "VIEW: Command failed\n" NORMAL);
-                continue;
-            }
-        
-            assert(flag == Success);
-        
             printf("\n--------OUTPUT of VIEW--------\n");
-        
+
             // Now receive all VIEW_DATA lines until VIEW_END
             while (1) {
-            
+
                 // get next packet length
                 if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
                     printf(RED "VIEW connection ended unexpectedly\n" NORMAL);
@@ -283,17 +271,17 @@ int main(){
                     printf(RED "VIEW packet overflow\n" NORMAL);
                     break;
                 }
-            
+
                 // read packet body
                 if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                     printf(RED "Error receiving VIEW data\n" NORMAL);
                     break;
                 }
-            
+
                 Unpack(recv_buff, &flag, &cmd_string);
-            
+
                 if (flag == VIEW_DATA) {
-                    printf("%s\n", cmd_string);
+                    printf("%s", cmd_string);
                 }
                 else if (flag == VIEW_END) {
                     break;
@@ -303,7 +291,7 @@ int main(){
                     break;
                 }
             }
-        
+
             printf("---------------------------------\n");
         }
         else if(strncmp(command_type,"READ",4)==0){
@@ -311,14 +299,14 @@ int main(){
             pkt.REQ_FLAG = READ_REQ_NS;
             strcpy(pkt.req_cmd, parsed.cmd[1]);   
             int payload_len = Pack(&pkt, buffer);
-                
+
             // send [length][packet] to NS
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
-                
+
             printf(GREEN "READ request sent successfully to NS\n" NORMAL);
-                
+
             // Receive NS response (which contains SS IP + port, or error)
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
@@ -327,23 +315,23 @@ int main(){
             }
             uint32_t resp_len = ntohl(resp_len_net);
             recv_all(client_socket, buffer, resp_len);
-        
+
             uint32_t flag;
             char *cmd_str;
             Unpack(buffer, &flag, &cmd_str);
-        
+
             if(flag != SS_IP_PORT){
                 printf(RED "File does not exist or no read access\n" NORMAL);
                 continue;
             }
-        
+
             printf(GREEN "Storage Server for file: %s\n" NORMAL, cmd_str);
-        
+
             // Parse SS location
             char ss_ip[64];
             int port;
             sscanf(cmd_str, "%s %d", ss_ip, &port);
-        
+
             // Send READ request directly to SS
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = READ_REQ_SS;
@@ -352,7 +340,7 @@ int main(){
             printf("ip: %s port: %d\n",ss_ip,port); 
             printf("\n--------FILE DATA--------\n");
             int result = client_ss_read(buffer, ss_ip, port, payload_len);
-        
+
             if(result == 0)
                 printf(GREEN "\nReading complete\n" NORMAL);
             else
@@ -361,31 +349,31 @@ int main(){
         else if(strncmp(command_type,"CREATE",6)==0){
             //Create a file
             printf("[%s] Requested CREATE Filename : %s\n",user_name,parsed.cmd[1]);
-                
+
             pkt.REQ_FLAG = CREATE_REQ;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
-                
+
             int bytes_to_send = Pack(&pkt,buffer);
             uint32_t net_len = htonl(bytes_to_send);
-                
+
             if (send_all(client_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "ERROR: Failed to send CREATE length.\n" NORMAL);
                 continue;
             }
-        
+
             if (send_all(client_socket, buffer, bytes_to_send) <= 0) {
                 printf(RED"Unable to send to the server\n"NORMAL);
                 continue;
             }
-        
+
             printf(GREEN"Packet sent Successfully\n"NORMAL); 
-        
+
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
                 printf(RED "Error receiving packet length\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t packet_len = ntohl(resp_len_net);
             if (packet_len > BUFFER_SIZE) {
                 printf(RED "Packet too large (%u bytes)\n" NORMAL, packet_len);
@@ -396,11 +384,11 @@ int main(){
                 printf(RED "Error receiving packet body\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(buffer,&flag,&cmd_string);
-        
+
             if(flag == Success){
                 printf(GREEN"File created Successfully\n"NORMAL);
             }
@@ -414,6 +402,7 @@ int main(){
         else if(strncmp(command_type,"INFO",4)==0){
             printf("[%s] Requested INFO Filename: %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = INFO;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
 
             int payload_len = Pack(&pkt, buffer);
 
@@ -425,27 +414,12 @@ int main(){
             printf(GREEN "INFO request sent to NS\n" NORMAL);
 
             // Receive ACK response first
-            uint32_t resp_len_net;
-            if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
-                printf(RED "Failed to receive INFO response\n" NORMAL);
-                continue;
-            }
-            uint32_t resp_len = ntohl(resp_len_net);
-            recv_all(client_socket, buffer, resp_len);
-        
-            uint32_t flag;
+            uint32_t resp_len_net,flag=-1;
             char *cmd_str;
-            Unpack(buffer, &flag, &cmd_str);
-        
-            if (flag == Fail) {
-                printf(RED "INFO failed: File does not exist or no access\n" NORMAL);
-                continue;
-            }
-        
-            assert(flag == Success);
-        
+          
+            uint32_t resp_len = ntohl(resp_len_net);
             printf("\n--------INFO DATA--------\n");
-        
+
             // Receive multiple INFO_DATA packets until INFO_END
             while (1) {
                 // Read length prefix
@@ -453,19 +427,19 @@ int main(){
                     printf(RED "Connection closed while receiving INFO\n" NORMAL);
                     break;
                 }
-            
+
                 resp_len = ntohl(resp_len_net);
                 recv_all(client_socket, buffer, resp_len);
-            
+
                 Unpack(buffer, &flag, &cmd_str);
-            
+
                 if (flag == INFO_END)
                     break;
-            
+
                 printf("%s", cmd_str);
             }
-        
-            printf("---------------------------\n");
+
+            printf("\n---------------------------\n");
         }
         else if(strncmp(command_type,"DELETE",6)==0){
             printf("[%s] Requested DELETE Filename : %s\n", user_name, parsed.cmd[1]);
@@ -487,14 +461,14 @@ int main(){
                 printf(RED "Failed to receive DELETE response\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t resp_len = ntohl(resp_len_net);
             recv_all(client_socket, buffer, resp_len);
-        
+
             uint32_t flag;
             char *cmd_string;
             Unpack(buffer, &flag, &cmd_string);
-        
+
             if(flag == FILE_DOESNT_EXIST){
                 printf(RED "Requested file does not exist\n" NORMAL);
                 continue;
@@ -503,82 +477,93 @@ int main(){
                 printf(RED "Command Failed\n" NORMAL);
                 continue;
             }
-        
+
             assert(flag == Success);
             printf(GREEN "File deletion Success\n" NORMAL);
         }
         else if(strncmp(command_type,"STREAM",6)==0){
             //Stream the file
             printf("[%s] Requested STREAM Filename: %s\n", user_name, parsed.cmd[1]);
-                
+
             pkt.REQ_FLAG = STREAM;
             strcpy(pkt.req_cmd, parsed.cmd[1]);   // Make sure filename is set
             int payload_len = Pack(&pkt, buffer);
-                
+
             // ---- SEND TO NAME SERVER (with length prefix) ----
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
-                
+
             printf(GREEN "Packet sent Successfully\n" NORMAL);
-                
+
             // ---- RECEIVE RESPONSE (length + packet) ----
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
                 printf(RED "Error receiving response length\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t resp_len = ntohl(resp_len_net);
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff, 0, BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED "Error receiving response packet\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
-            char *cmd_string;
-            Unpack(recv_buff, &flag, &cmd_string);
-        
-            if(flag == FILE_DOESNT_EXIST){
-                printf(RED "FILE_DOESNT_EXIST\n" NORMAL);
+            char *cmd_str;
+            Unpack(recv_buff, &flag, &cmd_str);
+
+            if(flag != SS_IP_PORT){
+                printf(RED "File does not exist or no read access\n" NORMAL);
                 continue;
             }
-        
-            assert(flag == Success);
-        
-            char ss_ip[40];
+
+            printf(GREEN "Storage Server for file: %s\n" NORMAL, cmd_str);
+
+            // Parse SS location
+            char ss_ip[64];
             int port;
-            sscanf(cmd_string, "%s %d", ss_ip, &port);
-        
-            printf("Storage Server: %s Port: %d\n", ss_ip, port);
-        
-            // ---- STREAM client->SS logic here ----
+            sscanf(cmd_str, "%s %d", ss_ip, &port);
+
+            // Send READ request directly to SS
+            memset(&pkt, 0, sizeof(pkt));
+            pkt.REQ_FLAG = STREAM;
+            strcpy(pkt.req_cmd, parsed.cmd[1]);
+            payload_len = Pack(&pkt, buffer);
+            printf("ip: %s port: %d\n",ss_ip,port); 
+            printf("\n--------FILE DATA--------\n");
+            int result = client_ss_stream(buffer, ss_ip, port, payload_len);
+
+            if(result == 0)
+                printf(GREEN "\nStreaming complete\n" NORMAL);
+            else
+                printf(RED "\nError during file STREAM\n" NORMAL);
         }
         else if(strncmp(command_type,"ADDACCESS",9)==0){
             // Adding access to users for read and write perms
             if(strcmp(parsed.cmd[1],"-R")==0){
                 pkt.REQ_FLAG = ADDACCESS_r;
                 printf("[%s] Requested ADDACCESS_r to Filename: %s for User: %s\n",
-                       user_name, parsed.cmd[2], parsed.cmd[3]);
+                        user_name, parsed.cmd[2], parsed.cmd[3]);
             }
             else{
                 pkt.REQ_FLAG = ADDACCESS_w;
                 printf("[%s] Requested ADDACCESS_w to Filename: %s for User: %s\n",
-                       user_name, parsed.cmd[2], parsed.cmd[3]);
+                        user_name, parsed.cmd[2], parsed.cmd[3]);
             }
-        
+
             int payload_len = Pack(&pkt, buffer);
-        
+
             // ---- SEND TO NAME SERVER (with length prefix) ----
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
-        
+
             printf(GREEN"Packet sent Successfully\n"NORMAL);
-        
+
             // ---- RECEIVE RESPONSE (with length prefix) ----
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
@@ -586,19 +571,19 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-        
+
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff,0,BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED "Error receiving packet\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-        
+
             if(flag == Success)
                 printf(GREEN"Added access Successfully\n"NORMAL);
             else
@@ -608,17 +593,17 @@ int main(){
             // Remove all access
             pkt.REQ_FLAG = REMACCESS;
             printf("[%s] Requested REMACCESS to Filename: %s for User: %s\n",
-                   user_name, parsed.cmd[1], parsed.cmd[2]);
-            
+                    user_name, parsed.cmd[1], parsed.cmd[2]);
+
             int payload_len = Pack(&pkt, buffer);
-            
+
             // ---- SEND packet length + packet ----
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
-            
+
             printf(GREEN"Packet sent Successfully\n"NORMAL);
-            
+
             // ---- RECEIVE response length ----
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
@@ -626,20 +611,20 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-        
+
             // ---- RECEIVE full response ----
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff, 0, BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED "Error receiving response\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-        
+
             if(flag == Success)
                 printf(GREEN"Removed access Successfully\n"NORMAL);
             else
@@ -665,20 +650,20 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-        
+
             // ---- RECEIVE full response ----
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff, 0, BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED "Error receiving EXEC response\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-        
+
             if(flag == Success)
                 printf(GREEN"Executed the file Successfully\n"NORMAL);
             else
@@ -704,20 +689,20 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-        
+
             // ---- RECEIVE full response ----
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff,0,BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED "Error receiving UNDO response data\n" NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-        
+
             if(flag == Success)
                 printf(GREEN"Undo Executed Successfully\n"NORMAL);
             else
@@ -743,20 +728,20 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-        
+
             // ---- RECEIVE response packet ----
             char recv_buff[BUFFER_SIZE];
             memset(recv_buff, 0, BUFFER_SIZE);
-        
+
             if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                 printf(RED"Error receiving WRITE response data\n"NORMAL);
                 continue;
             }
-        
+
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-        
+
             if(flag == Success)
                 printf(GREEN"WRITE command acknowledged by NS\n"NORMAL);
             else

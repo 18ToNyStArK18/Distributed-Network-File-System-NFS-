@@ -6,6 +6,7 @@ typedef struct inp_command{
 void parsing(char * inp_cmd,command_str * command_struct);
 void print_parsed(command_str * command_struct);
 int client_ss_read(char *bufer,char *ip,int port,int size);
+int client_ss_stream(char *bufer,char *ip,int port,int size);
 void Unpack(char *buffer,u_int32_t *,char **);
 int recv_all(int sock, void* buffer, int length);
 int send_all(int sock, const void* buffer, int length);

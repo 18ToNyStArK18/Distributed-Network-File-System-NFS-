@@ -156,48 +156,60 @@ void* Handle_client(void* arg){
                 printf(RED "[NS] ERROR: Failed to send USER_REG response.\n" NORMAL);
             }
         }
+        else if(flag == VIEW_N){
+            print_view(username_of_client,&users,hash,0,0,new_socket);    
+        }
+        else if(flag == VIEW_A){
+            print_view(username_of_client,&users,hash,1,0,new_socket);
+        }
+        else if(flag == VIEW_AL){
+            print_view(username_of_client,&users,hash,1,1,new_socket);
+        }
+        else if (flag == VIEW_L) {
+            print_view(username_of_client,&users,hash,0,1,new_socket);
+        }
         else if (flag == LIST) {
             int num_of_users = users.num_of_users;
             Packet pkt;  
 
             for (int i = 0; i < num_of_users; i++) {
-            
+
                 memset(&pkt, 0, sizeof(pkt));       
                 pkt.REQ_FLAG = LIST_DATA;
-            
+
                 char user_state[16];
                 strcpy(user_state, users.username_arr[i].active ? "active" : "inactive");
-            
+
                 snprintf(pkt.req_cmd, sizeof(pkt.req_cmd), "%s %s\n",
-                         users.username_arr[i].username, user_state);
-            
+                        users.username_arr[i].username, user_state);
+
                 int bytes_to_send = Pack(&pkt, buffer);
 
                 uint32_t net_len = htonl(bytes_to_send);
                 if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                     printf(RED "[NS] ERROR: Failed to send LIST length.\n" NORMAL);
                 }
-            
+
                 if (send_all(new_socket, buffer, bytes_to_send) <= 0) {
                     printf(RED "LIST: send failed\n" NORMAL);
                     break;
                 }
             }
-        
+
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = LIST_END;
             strcpy(pkt.req_cmd, "END");
-        
+
             int bytes_to_send = Pack(&pkt, buffer);
             uint32_t net_len = htonl(bytes_to_send);
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send LIST packets length.\n" NORMAL);
             }
             send_all(new_socket, buffer, bytes_to_send);
-        
+
             printf(GREEN "\n[NS] LIST packets sent successfully.\n" NORMAL);
         }
-        else if (flag == READ_REQ_NS) {
+        else if (flag == READ_REQ_NS || flag == STREAM) {
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));   
 
@@ -209,11 +221,11 @@ void* Handle_client(void* arg){
                 filelocation loc;
                 char filename[MAX_FILE_NAME_SIZE];
                 strcpy(filename, cmd_string);
-            
+
                 print_details(filename, hash);
-            
+
                 if (get_file_location(hash, filename, &loc)) {
-                
+
                     if (can_read(hash, filename, username_of_client) == -1) {
                         pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                         printf("NO ACCESS\n");
@@ -228,14 +240,14 @@ void* Handle_client(void* arg){
                     pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 }
             }
-        
+
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
             uint32_t net_len = htonl(bytes_to_send);
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send READ length.\n" NORMAL);
             }
-        
+
             if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
                 printf(RED "[NS] ERROR sending SS_IP_PORT response\n" NORMAL);
             } else {
@@ -245,49 +257,52 @@ void* Handle_client(void* arg){
         else if(flag == CREATE_REQ){
             char filename[MAX_FILE_NAME_SIZE];
             strcpy(filename, cmd_string);
-                
+
             printf("[NS] Forwarding CREATE to SS...\n");
-                
+
             Packet forward_pkt;
             memset(&forward_pkt, 0, sizeof(forward_pkt));
             forward_pkt.REQ_FLAG = CREATE_REQ;
             strcpy(forward_pkt.req_cmd, filename);
-                
+
             char forward_buff[BUFFER_SIZE];
             int forward_size = Pack(&forward_pkt, forward_buff);
-                
+
             int a = send_to_SS(forward_buff, ss_ip, ns_port, forward_size);
-                
+
             printf("[NS] Sending ACK back to client...\n");
-                
+
             Packet reply;
             memset(&reply, 0, sizeof(reply));
             reply.REQ_FLAG = (a == 0) ? Success : FILE_ALREADY_EXISTS;
-                
+
             char reply_buff[BUFFER_SIZE];
             int reply_size = Pack(&reply, reply_buff);
             uint32_t net_len = htonl(reply_size);
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send CREATE length.\n" NORMAL);
             }
-                
+
             send_all(new_socket, reply_buff, reply_size);
-                
+
             printf(GREEN "[NS] ACK sent successfully.\n" NORMAL);
-                
+
             if (a == 0) {
+                if(add_file_to_user(filename,username_of_client,&users)==-1)
+                        printf("ERROR\n");
                 if(add_file(hash, filename, ss_ip, client_port, username_of_client) == -1){
-                     printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
+                    printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {
-                     print(hash);
+                    print(hash);
                 }
             }
         }
         else if(flag == INFO){
             //no need to send to the Storage server
             //we will anyway store the data about the files and the users in the ns so just print int
-            strcpy(msg,"ACK for the INFO");
-
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            print_info(hash,filename,new_socket);
         }
         else if (flag == DELETE) {
             printf("[NS] Forwarding DELETE to SS...\n");
@@ -326,48 +341,23 @@ void* Handle_client(void* arg){
                 }
             }
         }
-        else if(flag == STREAM){
-            Packet pkt;
-            memset(&pkt, 0, sizeof(pkt));     
-
-            filelocation loc;
-            if (get_file_location(hash, cmd_string, &loc)) {
-            
-                if (can_read(hash, cmd_string, username_of_client) == -1)
-                    pkt.REQ_FLAG = FILE_DOESNT_EXIST;
-                else {
-                    pkt.REQ_FLAG = SS_IP_PORT;
-                    snprintf(pkt.req_cmd, sizeof(pkt.req_cmd), "%s %d", loc.ip, loc.ss_port);
-                }
-            }
-            else {
-                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
-            }
-        
-            char send_buff[BUFFER_SIZE];
-            int bytes_to_send = Pack(&pkt, send_buff);
-
-            uint32_t net_len = htonl(bytes_to_send);
-            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
-                printf(RED "[NS] ERROR: Failed to send STREAM length.\n" NORMAL);
-            }
-        
-            send_all(new_socket, send_buff, bytes_to_send);  
-        
-            printf("[NS] STREAM resolved → Sent SS IP + port\n");
-        }
         else if(flag == ADDACCESS_r){
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
             sscanf(cmd_string, "ADDACCESS -R %s %s", filename, username);
-
-            int a = add_r_access(hash, filename, username);
-            if (a == 1)
-                add_file_to_user(filename, username, &users);
-
+            int b = is_owner(username_of_client,filename,hash);
+            if(b != 1){
+                printf("NOT OWNER\n");
+            }
+            int a;
+            if(b==1){
+                a = add_r_access(hash, filename, username);
+                if (a == 1)
+                    add_file_to_user(filename, username, &users);
+            }
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));   
-            pkt.REQ_FLAG = (a == 1 ? Success : Fail);
+            pkt.REQ_FLAG = (a == 1 && b == 1) ? Success : Fail;
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
@@ -380,19 +370,24 @@ void* Handle_client(void* arg){
             send_all(new_socket, send_buff, bytes_to_send);   
         }
         else if(flag == ADDACCESS_w){
-                
+
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
             sscanf(cmd_string, "ADDACCESS -W %s %s", filename, username);
-                
-            int a = add_w_access(hash, filename, username);
-            if (a == 1)
-                add_file_to_user(filename, username, &users);
-                
+            int b = is_owner(username_of_client,filename,hash);
+            if(b != 1){
+                printf("NOT OWNER\n");
+            }
+            int a;
+            if(b==1){
+                a = add_w_access(hash, filename, username);
+                if (a == 1)
+                    add_file_to_user(filename, username, &users);
+            }
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));     
-            pkt.REQ_FLAG = (a == 1 ? Success : Fail);
-                
+            pkt.REQ_FLAG = ((a == 1 && b == 1) ? Success : Fail);
+
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
 
@@ -400,21 +395,26 @@ void* Handle_client(void* arg){
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send ADDACCESS_w length.\n" NORMAL);
             }
-                
+
             send_all(new_socket, send_buff, bytes_to_send);  
         }
         else if(flag == REMACCESS){
             char filename[MAX_FILE_NAME_SIZE];
             char username[MAX_WORD_SIZE];
             sscanf(cmd_string, "REMACCESS %s %s", filename, username);
-
-            int a = rem_access(hash, filename, username);
-            if (a == 1)
-                delete_file_from_user(filename, username, &users);
-
+            int b = is_owner(username_of_client,filename,hash);
+            if(b != 1){
+                printf("NOT OWNER\n");
+            }
+            int a;
+            if(b==1){
+                a = rem_access(hash, filename, username);
+                if (a == 1)
+                    delete_file_from_user(filename, username, &users);
+            }
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));     
-            pkt.REQ_FLAG = (a == 1 ? Success : Fail);
+            pkt.REQ_FLAG = ((a == 1  && b == 1) ? Success : Fail);
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);

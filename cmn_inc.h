@@ -46,9 +46,12 @@ int Pack(Packet* pkt , char * buff);
 #define FILE_DOESNT_EXIST 6
 
 //some basic flags
-#define VIEW 11
-#define VIEW_DATA 111
-#define VIEW_END 112
+#define VIEW_N 11
+#define VIEW_A 111
+#define VIEW_L 112
+#define VIEW_AL 113
+#define VIEW_DATA 114
+#define VIEW_END 115
 #define INFO 12
 #define INFO_DATA 121
 #define INFO_END 122

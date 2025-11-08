@@ -35,6 +35,9 @@ typedef struct Hashnode{
     char *filename;
     filelocation location;
     char Owner[MAX_WORD_SIZE];
+    int wc;
+    int chars;
+    char time[100];
     struct Hashnode *next;
     struct rw_access *read;
     struct rw_access *write;
@@ -72,3 +75,6 @@ int add_file_to_user(char *filename,char *username,userdatabase *users);
 int delete_file_from_user(char *filename,char *username,userdatabase *users);
 void print(Hashmap *map);
 void print_details(char *filename,Hashmap *map);
+void print_view(char *username,userdatabase *users,Hashmap *map,int a, int l,int socket);
+int is_owner(char *username,char *filename,Hashmap *map);
+void print_info(Hashmap *map,char *filename,int socket);
