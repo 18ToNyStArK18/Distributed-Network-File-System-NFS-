@@ -1,6 +1,8 @@
 {
     "C_Cpp.errorSquiggles": "enabled",
     "files.associations": {
-        "cerrno": "c"
+        "cerrno": "c",
+        "ns.h": "c",
+        "socket.h": "c"
     }
 }

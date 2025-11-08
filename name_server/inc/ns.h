@@ -45,7 +45,10 @@ typedef struct Hashmap{
     Hashnode **buckets;
 }Hashmap;
 int send_to_SS(char *buff,char *ss_ip,int ss_port,int size);
+int Pack(Packet* pkt, char* buff);
 void Unpack(char* buffer, uint32_t* flag, char** cmd_string);
+int recv_all(int sock, void* buffer, int length);
+int send_all(int sock, const void* buffer, int length);
 int reg_user(char *cmd_string,userdatabase *users);
 void removeusername(char *,userdatabase *);
 
