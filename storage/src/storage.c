@@ -270,16 +270,22 @@ void* Handle_NS (void* arg) {
     // char *msg = "ACK - Command Received\n";
 
     while(1) {
-        memset(buffer, 0, BUFFER_SIZE);
-        int r = recv(ns_fd, buffer, sizeof(buffer), 0);
+        uint32_t net_packet_len;
 
-        if (r <= 0) {
-            if (r == 0) { 
-                printf("[Thread %ld] Name Server %s disconnected.\n", pthread_self(), NS_IP);
-            }
-            else { 
-                perror("[Thread] recv failed\n");
-            }
+        if(recv_all(ns_fd,&net_packet_len,sizeof(uint32_t))<=0){
+            printf("[Thread %ld] Name_server disconnected.\n",pthread_self());
+            break;
+        }
+        uint32_t packet_len = ntohl(net_packet_len);
+
+        if(packet_len > BUFFER_SIZE){
+            printf(RED"Error: Packet too large\n"NORMAL);        
+        }
+
+        memset(buffer, 0, BUFFER_SIZE);
+
+       if(recv_all(ns_fd,buffer,packet_len)<=0){
+            printf("[Thread %ld] Name_server disconnected\n",pthread_self());
             break;
         }
 

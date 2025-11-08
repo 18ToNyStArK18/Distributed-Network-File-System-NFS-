@@ -15,7 +15,7 @@ int send_to_SS(char *buff, char *ss_ip, int ss_port, int size) {
     ss_addr.sin_port = htons(ss_port);
 
     if (inet_pton(AF_INET, ss_ip, &ss_addr.sin_addr) <= 0) {
-        printf("Invalid IP\n");
+        printf("Invalid IP %s...\n",ss_ip);
         close(ss_sock);
         return -1;
     }

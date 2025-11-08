@@ -649,15 +649,12 @@ void* Handle_storage_server(void* arg) {
         if (flag == REG_SS) {
 
             // Parse: REGISTER <ip> <ns_port> <client_port>
-            char ss_reg_ip[64];
-            int ss_ns_port = 0, ss_client_port = 0;
-
-            sscanf(cmd_string, "REGISTER %s %d %d", ss_reg_ip, &ss_ns_port, &ss_client_port);
+            sscanf(cmd_string, "REGISTER %s %d %d", ss_ip, &ns_port, &client_port);
 
             printf("---- Storage Server Registered ----\n");
-            printf("IP: %s\n", ss_reg_ip);
-            printf("NS_PORT: %d\n", ss_ns_port);
-            printf("CLIENT_PORT: %d\n", ss_client_port);
+            printf("IP: %s\n", ss_ip);
+            printf("NS_PORT: %d\n", ns_port);
+            printf("CLIENT_PORT: %d\n", client_port);
 
             // Build ACK response packet
             Packet reply;
