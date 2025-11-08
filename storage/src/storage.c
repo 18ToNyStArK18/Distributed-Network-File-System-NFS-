@@ -333,8 +333,14 @@ void* Handle_NS (void* arg) {
             pkt.REQ_FLAG = send_flag;
         
             int bytes_to_send = Pack(&pkt, temp_buffer);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(ns_fd, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[SS] ERROR: Failed to send CREATE length.\n" NORMAL);
+            }
+
             if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0 ) {
-                printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
+                printf(RED "ERROR sending CREATE ack to NS\n" NORMAL);
             }
         
             printf("[SS] CREATE for file '%s' -> %s\n", filename, send_flag == Success ? "Success" : (send_flag == FILE_ALREADY_EXISTS ? "Already Exists" : "Fail"));
@@ -363,6 +369,11 @@ void* Handle_NS (void* arg) {
         
             char temp_buffer[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, temp_buffer);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(ns_fd, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[SS] ERROR: Failed to send DELETE length.\n" NORMAL);
+            }
         
             if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0) {
                 printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
