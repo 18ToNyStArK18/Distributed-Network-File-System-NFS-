@@ -1,5 +1,64 @@
 #include "../inc/ns.h"
 #include <sys/socket.h>
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char* ptr = buffer;
+
+    ptr += sizeof(uint32_t); // skip length
+
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net);
+    ptr += sizeof(uint32_t);
+
+    *cmd_string = ptr;
+}
+
+int Pack(Packet* pkt, char* buff) {
+    memset(buff, 0, BUFFER_SIZE);
+
+    uint32_t flag_net = htonl(pkt->REQ_FLAG);
+    uint32_t msg_len = strlen(pkt->req_cmd) + 1;       // include null terminator
+    uint32_t total_len = sizeof(uint32_t) + msg_len;   // flag + string
+    uint32_t total_len_net = htonl(total_len);
+
+    char* ptr = buff;
+
+    memcpy(ptr, &total_len_net, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+
+    memcpy(ptr, &flag_net, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+
+    memcpy(ptr, pkt->req_cmd, msg_len);
+    ptr += msg_len;
+
+    return ptr - buff;
+}
+
+int recv_all(int sock, void* buffer, int length) {
+    int total = 0, n;
+    while (total < length) {
+        n = recv(sock, (char*)buffer + total, length - total, 0);
+        if (n <= 0) return n; // error or disconnect
+        total += n;
+    }
+    return total;
+}
+
+int send_all(int sock, const void* buffer, int length) {
+    int total = 0;
+    int n;
+
+    while (total < length) {
+        n = send(sock, (const char*)buffer + total, length - total, 0);
+        if (n <= 0) {
+            return n; // error or disconnected
+        }
+        total += n;
+    }
+
+    return total;
+}
 int send_to_SS(char *buff, char *ss_ip, int ss_port, int size) {
 
     int ss_sock;

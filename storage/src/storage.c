@@ -6,6 +6,8 @@
 #include <time.h>
 #include <assert.h>
 
+int recv_all(int sock, void* buffer, int length);
+int send_all(int sock, const void* buffer, int length);
 void* NS_listener_thread (void *arg);
 void* Client_listener_thread (void *arg);
 void* Handle_NS (void* arg);
@@ -116,7 +118,7 @@ int main() {
     snprintf(reg_msg, sizeof(reg_msg), "REGISTER %s %d %d", my_ip, ns_port, client_port);
 
     Packet pkt;
-    memset(&pkt, 0 , sizeof(pkt));
+    memset(&pkt, 0, sizeof(pkt));
     strncpy(pkt.req_cmd, reg_msg, sizeof(pkt.req_cmd)-1);
     pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
     pkt.REQ_FLAG = REG_SS;
@@ -124,38 +126,24 @@ int main() {
     char buffer[BUFFER_SIZE];
     int bytes_to_send = Pack(&pkt, buffer);
 
-    send(ns_sock, buffer, bytes_to_send, 0);
+    uint32_t len_net = htonl(bytes_to_send);
+    send_all(ns_sock, &len_net, sizeof(len_net));
+    send_all(ns_sock, buffer, bytes_to_send);
+
     printf("Sent registration to Name Server: %s\n", reg_msg);
-    char recv_buff[BUFFER_SIZE];
-    memset(recv_buff,0,BUFFER_SIZE);
-    if(recv(ns_sock,recv_buff,BUFFER_SIZE,0)< 0){
-        printf(RED"Error in recieving packet\n"NORMAL);
+
+    uint32_t ack_len_net;
+    if (recv_all(ns_sock, &ack_len_net, sizeof(ack_len_net)) <= 0) {
+        printf(RED "Error receiving response length\n" NORMAL);
+        close(ns_sock);
         return 0;
     }
-    printf("Server says: %s\n",recv_buff);
+    uint32_t ack_len = ntohl(ack_len_net);
 
-    // TO ADD: sending the initial list of files in storage
-    /*DIR* d;
-    struct dirent *dir;
-    d = opendir(".");
+    char recv_buff[BUFFER_SIZE];
+    recv_all(ns_sock, recv_buff, ack_len);
+    printf("Server says: %s\n", recv_buff);
 
-    if (d) {
-        while ((dir = readdir(d)) != NULL) { 
-            Packet p;
-            memset(&p, 0, sizeof(p));
-            strncpy(pkt.req_cmd, dir->d_name, sizeof(pkt.req_cmd)-1);
-            pkt.req_cmd[sizeof(pkt.req_cmd)-1] = '\0';
-            pkt.REQ_FLAG = REG_FILES;
-
-            char file_buffer[BUFFER_SIZE];
-            int file_bytes_to_send = Pack(&p, file_buffer);
-
-            send(ns_sock, file_buffer, file_bytes_to_send, 0);
-            printf("Sent file registration to Name Server: %s\n", dir->d_name);
-            usleep(10000);
-        }
-    }
-    */
     close(ns_sock);
 
     pthread_t ns_thread, client_thread;
@@ -176,31 +164,64 @@ int main() {
 
 // pack the struct into a buffer so that i can send the pckt to the name server
 
-int Pack(Packet* pkt , char * buff) {
-    memset(buff, 0 ,BUFFER_SIZE);
-    char *ptr = buff;
+void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
+    char* ptr = buffer;
 
-    uint32_t flag = htonl(pkt->REQ_FLAG);
-    memcpy(ptr,&flag,sizeof(uint32_t));
+    ptr += sizeof(uint32_t); // skip length
 
+    uint32_t flag_net;
+    memcpy(&flag_net, ptr, sizeof(uint32_t));
+    *flag = ntohl(flag_net);
     ptr += sizeof(uint32_t);
 
-    int cmd_len = strlen(pkt->req_cmd)+1;
-    memcpy(ptr,pkt->req_cmd,cmd_len);
-    
-    ptr += cmd_len;
+    *cmd_string = ptr;
+}
+
+int Pack(Packet* pkt, char* buff) {
+    memset(buff, 0, BUFFER_SIZE);
+
+    uint32_t flag_net = htonl(pkt->REQ_FLAG);
+    uint32_t msg_len = strlen(pkt->req_cmd) + 1;       // include null terminator
+    uint32_t total_len = sizeof(uint32_t) + msg_len;   // flag + string
+    uint32_t total_len_net = htonl(total_len);
+
+    char* ptr = buff;
+
+    memcpy(ptr, &total_len_net, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+
+    memcpy(ptr, &flag_net, sizeof(uint32_t));
+    ptr += sizeof(uint32_t);
+
+    memcpy(ptr, pkt->req_cmd, msg_len);
+    ptr += msg_len;
+
     return ptr - buff;
 }
 
-void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
-    char *ptr = buffer;
-    
-    uint32_t flag_net;
-    memcpy(&flag_net, ptr, sizeof(uint32_t));
-    *flag = ntohl(flag_net); // Convert back from Network Order
-    ptr += sizeof(uint32_t);
-    
-    *cmd_string = ptr; 
+int recv_all(int sock, void* buffer, int length) {
+    int total = 0, n;
+    while (total < length) {
+        n = recv(sock, (char*)buffer + total, length - total, 0);
+        if (n <= 0) return n; // error or disconnect
+        total += n;
+    }
+    return total;
+}
+
+int send_all(int sock, const void* buffer, int length) {
+    int total = 0;
+    int n;
+
+    while (total < length) {
+        n = send(sock, (const char*)buffer + total, length - total, 0);
+        if (n <= 0) {
+            return n; // error or disconnected
+        }
+        total += n;
+    }
+
+    return total;
 }
 
 
@@ -270,59 +291,78 @@ void* Handle_NS (void* arg) {
     
         
         if (flag == CREATE_REQ) {
-            // create file
-            printf("Recived the create cmd req\n");
-            char filename[MAX_FILE_NAME_SIZE];
-            strcpy(filename,cmd_string);
-            pthread_mutex_lock(&FILES_C_AND_W);
-            FILE *fp;
-            int send_flag = -1;
-            //need to check whether the file with the same name exists already
-            fp=fopen(filename,"r");
-            if(fp != NULL){
-                send_flag = FILE_ALREADY_EXISTS;
-                fclose(fp);
-                pthread_mutex_unlock(&FILES_C_AND_W);
-            }
-            else{
-                //file doesnt exists so i will create that file
-                fp = fopen(filename,"w");
-                assert(fp != NULL);
-                send_flag = Success;
-                pthread_mutex_unlock(&FILES_C_AND_W);
-            }
-            char temp_buffer[BUFFER_SIZE];
-            temp_buffer[0]='\0';
-            Packet pkt;
-            pkt.REQ_FLAG = send_flag;
-            int bytes_to_send = Pack(&pkt,temp_buffer);
-            if(send(ns_fd,temp_buffer,bytes_to_send,0) < 0){
-                printf(RED"ERROR in sending the ack\n"NORMAL);
-            }
+            printf("Received CREATE request\n");
 
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename, cmd_string);
+
+            pthread_mutex_lock(&FILES_C_AND_W);
+
+            FILE *fp = fopen(filename, "r");
+            int send_flag;
+
+            if (fp != NULL) {
+                // File already exists
+                fclose(fp);
+                send_flag = FILE_ALREADY_EXISTS;
+            } 
+            else {
+                // Create new file
+                fp = fopen(filename, "w");
+                if (fp == NULL) {
+                    send_flag = Fail;
+                } 
+                else {
+                    send_flag = Success;
+                    fclose(fp);
+                }
+            }
+        
+            pthread_mutex_unlock(&FILES_C_AND_W);
+        
+            // Now send response to Name Server
+            char temp_buffer[BUFFER_SIZE];
+            Packet pkt;
+            memset(&pkt, 0, sizeof(pkt));
+            pkt.REQ_FLAG = send_flag;
+        
+            int bytes_to_send = Pack(&pkt, temp_buffer);
+            if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0 ) {
+                printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
+            }
+        
+            printf("[SS] CREATE for file '%s' -> %s\n", filename, send_flag == Success ? "Success" : (send_flag == FILE_ALREADY_EXISTS ? "Already Exists" : "Fail"));
         }
         else if (flag == DELETE) {
-            // delete file
-            printf("Recived the delete cmd req\n");
+            printf("Received DELETE request\n");
+
             char filename[MAX_FILE_NAME_SIZE];
-            strcpy(filename,cmd_string);
+            strcpy(filename, cmd_string);
+
             pthread_mutex_lock(&FILES_C_AND_W);
-            int send_flag = -1;
-            if(remove(filename)==0){
+
+            int send_flag;
+            if (remove(filename) == 0) {
                 send_flag = Success;
-            }
+            } 
             else {
                 send_flag = FILE_DOESNT_EXIST;
             }
+        
             pthread_mutex_unlock(&FILES_C_AND_W);
-            char temp_buffer[BUFFER_SIZE];
-            temp_buffer[0]='\0';
+        
             Packet pkt;
+            memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = send_flag;
-            int bytes_to_send = Pack(&pkt,temp_buffer);
-            if(send(ns_fd,temp_buffer,bytes_to_send,0) < 0){
-                printf(RED"ERROR in sending the ack\n"NORMAL);
+        
+            char temp_buffer[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt, temp_buffer);
+        
+            if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0) {
+                printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
             }
+        
+            printf("[SS] DELETE request for '%s' -> %s\n", filename, send_flag == Success ? "Success" : "File Does Not Exist");
         }
         else if (flag == EXEC) {
             // send contents of file line by line
@@ -343,26 +383,46 @@ void* Handle_Client (void* arg) {
     printf("Client IP: %s Client Port: %d\n", client_ip, new_socket);
     free(args);
 
-    while(1) {
-        memset(buffer, 0, BUFFER_SIZE);
-        int r = recv(new_socket, buffer, sizeof(buffer), 0);
-
+    while (1) {
+        // --- Read length header (4 bytes) ---
+        uint32_t net_len;
+        int r = recv_all(new_socket, &net_len, sizeof(net_len));
         if (r <= 0) {
-            if (r == 0) { 
+            if (r == 0) {
                 printf("[Thread %ld] Client %s disconnected.\n", pthread_self(), client_ip);
-            }
-            else { 
-                perror("[Thread] recv failed\n");
+            } 
+            else {
+                perror("[Thread] recv_all(len) failed");
             }
             break;
         }
 
-        uint32_t flag = -1;
-        char* filename;
-        Unpack(buffer, &flag, &filename); // client sends the filename in place of cmd_string as we know what cmd it is by the flag
+        uint32_t body_len = ntohl(net_len);            // size of (flag + payload)
+        if (body_len > BUFFER_SIZE - sizeof(uint32_t)) {
+            fprintf(stderr, "Packet too large: %u\n", body_len);
+            break;
+        }
 
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, filename);
+        // --- Read packet body (flag + payload) ---
+        char body[BUFFER_SIZE];
+        if (recv_all(new_socket, body, body_len) <= 0) {
+            perror("[Thread] recv_all(body) failed");
+            break;
+        }
 
+        // Your Unpack expects the buffer to BEGIN with the 4-byte length.
+        // So synthesize a temporary buffer: [len][flag][payload]
+        char pktbuf[BUFFER_SIZE];
+        memcpy(pktbuf, &net_len, sizeof(uint32_t));
+        memcpy(pktbuf + sizeof(uint32_t), body, body_len);
+
+        // --- Unpack ---
+        uint32_t flag = (uint32_t)-1;
+        char* filename = NULL;
+        Unpack(pktbuf, &flag, &filename);
+
+        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n",
+               pthread_self(), client_ip, flag, filename ? filename : "(null)");
 
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
@@ -372,7 +432,7 @@ void* Handle_Client (void* arg) {
             }
 
             FileLockTable *table = get_or_build_sentence_table(filename);
-            if (!table) { 
+            if (!table) {
                 fclose(fp);
                 perror("get_or_build_sentence_table failed");
                 continue;
@@ -384,7 +444,7 @@ void* Handle_Client (void* arg) {
             bool lock_held = false;
 
             while (1) {
-
+                // Lock at the START of a sentence (before reading its first char)
                 if (idx == 0 && sentence_idx < table->sentence_count) {
                     pthread_rwlock_rdlock(&table->sentences[sentence_idx].lock);
                     lock_held = true;
@@ -399,21 +459,22 @@ void* Handle_Client (void* arg) {
                     break;
                 }
 
-                sentence[idx++] = c; // write after acquiring lock to prevent race
+                sentence[idx++] = c;  // we are under the sentence lock here
 
-                // End of sentence detected
+                // End of sentence?
                 if (c == '.' || c == '!' || c == '?' || c == '\n') {
-                    sentence[idx] = '\0'; // null terminate sentence
+                    sentence[idx] = '\0';
 
                     Packet pkt;
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = READ_DATA;
+                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
+
                     char send_buff[BUFFER_SIZE];
-                    strcpy(pkt.req_cmd, sentence);
                     int bytes_to_send = Pack(&pkt, send_buff);
 
-                    if (send(new_socket, send_buff, bytes_to_send,0) < 0) {
-                        perror("send failed");
+                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                        perror("send_all failed");
                         if (lock_held) {
                             pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
                             lock_held = false;
@@ -421,64 +482,71 @@ void* Handle_Client (void* arg) {
                         break;
                     }
 
-                    usleep(10000); //so that multiple packets will not be merged by tcp
-
+                    // Release the sentence lock now that it’s fully sent
                     if (lock_held) {
                         pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
                         lock_held = false;
                     }
 
-                    idx = 0; // reset for next sentence
+                    idx = 0;
                     sentence_idx++;
                 }
-                
+
+                // Very long sentence chunking (keep the SAME lock held)
                 if (idx >= BUFFER_SIZE - 2) {
                     sentence[idx] = '\0';
 
                     Packet pkt;
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = READ_DATA;
+                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
 
-                    strcpy(pkt.req_cmd, sentence);
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
-                    send(new_socket, send_buff, bytes_to_send,0);
 
-                    // DON'T RELEASE LOCK HERE AS WE HAVE NOT FINISHED READING SENTENCE
-                    // IT'S JUST THAT THE BUFFER IS FULL
+                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                        perror("send_all failed");
+                        // do NOT unlock here, same sentence still in progress
+                        break;
+                    }
 
-                    idx = 0;
+                    idx = 0;  // continue SAME sentence under the same lock
                 }
             }
+
+            // Tail without terminal punctuation
             if (idx > 0) {
-                sentence[idx] = '\0'; // Null-terminate the last chunk
+                sentence[idx] = '\0';
+
                 Packet pkt;
                 memset(&pkt, 0, sizeof(pkt));
                 pkt.REQ_FLAG = READ_DATA;
-                strcpy(pkt.req_cmd, sentence);
+                strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
 
                 char send_buff[BUFFER_SIZE];
                 int bytes_to_send = Pack(&pkt, send_buff);
-                send(new_socket, send_buff, bytes_to_send, 0);
-                usleep(10000);
-                // no need to release here as lock is already released at eof or after last sentence
+                send_all(new_socket, send_buff, bytes_to_send);
+
+                // If we still hold the lock (partial last sentence), release it
+                if (lock_held) {
+                    pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                    lock_held = false;
+                }
             }
 
             fclose(fp);
 
-            // Send END flag
+            // Send READ_END
             Packet end;
             memset(&end, 0, sizeof(end));
             end.REQ_FLAG = READ_END;
 
             char end_buff[BUFFER_SIZE];
-            int bytes = Pack(&end, end_buff);
-            usleep(10000);
-            send(new_socket, end_buff, bytes,0);
+            int end_len = Pack(&end, end_buff);
+            send_all(new_socket, end_buff, end_len);
 
             printf("Sent READ_END\n");
-        }   
-
+        }
         else if (flag == WRITE_REQ) {
             // write file
         }
