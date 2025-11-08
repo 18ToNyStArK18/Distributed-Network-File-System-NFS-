@@ -490,6 +490,12 @@ void* Handle_Client (void* arg) {
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
 
+                    uint32_t net_len = htonl(bytes_to_send);
+
+                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                    }
+
                     if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
                         perror("send_all failed");
                         if (lock_held) {
@@ -521,6 +527,12 @@ void* Handle_Client (void* arg) {
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
 
+                    uint32_t net_len = htonl(bytes_to_send);
+
+                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                    }
+
                     if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
                         perror("send_all failed");
                         // do NOT unlock here, same sentence still in progress
@@ -542,6 +554,12 @@ void* Handle_Client (void* arg) {
 
                 char send_buff[BUFFER_SIZE];
                 int bytes_to_send = Pack(&pkt, send_buff);
+
+                uint32_t net_len = htonl(bytes_to_send);
+
+                if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                    printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                }
                 send_all(new_socket, send_buff, bytes_to_send);
 
                 // If we still hold the lock (partial last sentence), release it
@@ -560,6 +578,11 @@ void* Handle_Client (void* arg) {
 
             char end_buff[BUFFER_SIZE];
             int end_len = Pack(&end, end_buff);
+            uint32_t net_len = htonl(end_len);
+
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+            }
             send_all(new_socket, end_buff, end_len);
 
             printf("Sent READ_END\n");

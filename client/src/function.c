@@ -48,28 +48,55 @@ int client_ss_read(char *buffer,char *ip , int port,int size){
         return -1;
     }
 
-    if(send(ss_sock,buffer,size,0) < 0){
-        printf("Sending failed\n");
+    uint32_t net_len = htonl(size);
+    if (send_all(ss_sock, &net_len, sizeof(net_len)) <= 0) {
+        printf("Sending length failed\n");
         close(ss_sock);
         return -1;
     }
-    char recv_buffer[1024];
-    while(1){
-        if(recv(ss_sock,recv_buffer,1023,0)<0){
-            printf("Error in recieving packet\n");
+    if (send_all(ss_sock, buffer, size) <= 0) {
+        printf("Sending data failed\n");
+        close(ss_sock);
+        return -1;
+    }
+
+    printf("Sent file request to SS\n");
+
+    while (1) {
+
+        // Read packet length
+        uint32_t resp_len_net;
+        if (recv_all(ss_sock, &resp_len_net, sizeof(resp_len_net)) <= 0) {
+            printf("Connection closed while reading\n");
             close(ss_sock);
-            return -1;    
+            return -1;
         }
-        //unpacking logic
+
+        uint32_t resp_len = ntohl(resp_len_net);
+        if (resp_len > BUFFER_SIZE) {
+            printf("Packet too large\n");
+            close(ss_sock);
+            return -1;
+        }
+
+        // Read full packet
+        char recv_buffer[BUFFER_SIZE];
+        if (recv_all(ss_sock, recv_buffer, resp_len) <= 0) {
+            printf("Failed to receive complete packet\n");
+            close(ss_sock);
+            return -1;
+        }
+
         uint32_t flag;
         char *cmd_str;
+        Unpack(recv_buffer, &flag, &cmd_str);
 
-        Unpack(recv_buffer,&flag,&cmd_str);
-        if(flag == READ_END)
+        if (flag == READ_END)
             break;
-        else
-            printf("%s",cmd_str);
+
+        printf("%s", cmd_str);
     }
-        close(ss_sock);
-        return 0;
+
+    close(ss_sock);
+    return 0;
 }
