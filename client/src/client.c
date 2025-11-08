@@ -358,6 +358,59 @@ int main(){
             else
                 printf(RED "\nError during file read\n" NORMAL);
         }
+        else if(strncmp(command_type,"CREATE",6)==0){
+            //Create a file
+            printf("[%s] Requested CREATE Filename : %s\n",user_name,parsed.cmd[1]);
+                
+            pkt.REQ_FLAG = CREATE_REQ;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
+                
+            int bytes_to_send = Pack(&pkt,buffer);
+            uint32_t net_len = htonl(bytes_to_send);
+                
+            if (send_all(client_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "ERROR: Failed to send CREATE length.\n" NORMAL);
+                continue;
+            }
+        
+            if (send_all(client_socket, buffer, bytes_to_send) <= 0) {
+                printf(RED"Unable to send to the server\n"NORMAL);
+                continue;
+            }
+        
+            printf(GREEN"Packet sent Successfully\n"NORMAL); 
+        
+            uint32_t resp_len_net;
+            if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
+                printf(RED "Error receiving packet length\n" NORMAL);
+                continue;
+            }
+        
+            uint32_t packet_len = ntohl(resp_len_net);
+            if (packet_len > BUFFER_SIZE) {
+                printf(RED "Packet too large (%u bytes)\n" NORMAL, packet_len);
+                continue;
+            }
+
+            if (recv_all(client_socket, buffer, packet_len) <= 0) {
+                printf(RED "Error receiving packet body\n" NORMAL);
+                continue;
+            }
+        
+            uint32_t flag = -1;
+            char *cmd_string;
+            Unpack(buffer,&flag,&cmd_string);
+        
+            if(flag == Success){
+                printf(GREEN"File created Successfully\n"NORMAL);
+            }
+            else if(flag == FILE_ALREADY_EXISTS){
+                printf(RED"File with the same name already exists\n"NORMAL);
+            }
+            else {
+                printf(RED"File is not created\n"NORMAL);
+            }
+        }
         else if(strncmp(command_type,"INFO",4)==0){
             printf("[%s] Requested INFO Filename: %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = INFO;
@@ -671,17 +724,17 @@ int main(){
         }
         else if(strncmp(command_type,"WRITE",5)==0){
             printf("[%s] Requested WRITE Filename: %s\n", user_name, parsed.cmd[1]);
-                
+
             pkt.REQ_FLAG = WRITE_REQ;
             int payload_len = Pack(&pkt, buffer);
-                
+
             // ---- SEND packet length + packet ----
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
-                
+
             printf(GREEN"Packet sent Successfully\n"NORMAL); 
-                
+
             // ---- RECEIVE response length ----
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {

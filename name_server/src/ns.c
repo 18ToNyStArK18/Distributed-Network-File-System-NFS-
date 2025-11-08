@@ -121,7 +121,7 @@ void* Handle_client(void* arg){
         // --- Step 3: Unpack ---
         uint32_t flag;
         char *cmd_string;
-        Unpack(buffer - sizeof(uint32_t), &flag, &cmd_string);
+        Unpack(buffer, &flag, &cmd_string);
 
         printf("\n[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, cmd_string);
         if (flag == USER_REG) {
@@ -146,6 +146,11 @@ void* Handle_client(void* arg){
             strcpy(pkt.req_cmd, cmd_string);       
         
             int bytes_to_send = Pack(&pkt, buffer);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send USER_REG length.\n" NORMAL);
+            }
         
             if (send_all(new_socket, buffer, bytes_to_send) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send USER_REG response.\n" NORMAL);
@@ -167,6 +172,11 @@ void* Handle_client(void* arg){
                          users.username_arr[i].username, user_state);
             
                 int bytes_to_send = Pack(&pkt, buffer);
+
+                uint32_t net_len = htonl(bytes_to_send);
+                if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                    printf(RED "[NS] ERROR: Failed to send LIST length.\n" NORMAL);
+                }
             
                 if (send_all(new_socket, buffer, bytes_to_send) <= 0) {
                     printf(RED "LIST: send failed\n" NORMAL);
@@ -179,6 +189,10 @@ void* Handle_client(void* arg){
             strcpy(pkt.req_cmd, "END");
         
             int bytes_to_send = Pack(&pkt, buffer);
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send LIST packets length.\n" NORMAL);
+            }
             send_all(new_socket, buffer, bytes_to_send);
         
             printf(GREEN "\n[NS] LIST packets sent successfully.\n" NORMAL);
@@ -215,6 +229,10 @@ void* Handle_client(void* arg){
         
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send READ length.\n" NORMAL);
+            }
         
             if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
                 printf(RED "[NS] ERROR sending SS_IP_PORT response\n" NORMAL);
@@ -246,6 +264,10 @@ void* Handle_client(void* arg){
                 
             char reply_buff[BUFFER_SIZE];
             int reply_size = Pack(&reply, reply_buff);
+            uint32_t net_len = htonl(reply_size);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send CREATE length.\n" NORMAL);
+            }
                 
             send_all(new_socket, reply_buff, reply_size);
                 
@@ -287,6 +309,11 @@ void* Handle_client(void* arg){
             char reply_buff[BUFFER_SIZE];
             int reply_size = Pack(&reply_pkt, reply_buff);
 
+            uint32_t net_len = htonl(reply_size);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send DELETE length.\n" NORMAL);
+            }
+
             send_all(new_socket, reply_buff, reply_size);
 
             printf(GREEN "[NS] ACK sent successfully.\n" NORMAL);
@@ -317,6 +344,11 @@ void* Handle_client(void* arg){
         
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send STREAM length.\n" NORMAL);
+            }
         
             send_all(new_socket, send_buff, bytes_to_send);  
         
@@ -338,6 +370,11 @@ void* Handle_client(void* arg){
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
 
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send ADDACCESS_r length.\n" NORMAL);
+            }
+
             send_all(new_socket, send_buff, bytes_to_send);   
         }
         else if(flag == ADDACCESS_w){
@@ -356,6 +393,11 @@ void* Handle_client(void* arg){
                 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send ADDACCESS_w length.\n" NORMAL);
+            }
                 
             send_all(new_socket, send_buff, bytes_to_send);  
         }
@@ -374,6 +416,11 @@ void* Handle_client(void* arg){
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send REMACCESS length.\n" NORMAL);
+            }
 
             send_all(new_socket, send_buff, bytes_to_send);  
         }
@@ -595,7 +642,7 @@ void* Handle_storage_server(void* arg) {
         // --- Step 3: Unpack packet ---
         uint32_t flag;
         char* cmd_string;
-        Unpack(buffer - sizeof(uint32_t), &flag, &cmd_string);
+        Unpack(buffer, &flag, &cmd_string);
 
         printf("[Thread %ld] SS %s Flag: %u, Cmd: %s\n", pthread_self(), ss_ip_str, flag, cmd_string);
 
@@ -620,6 +667,11 @@ void* Handle_storage_server(void* arg) {
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&reply, send_buff);
+
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_ss_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send REG_SS length.\n" NORMAL);
+            }
 
             send_all(new_ss_socket, send_buff, bytes_to_send);
         }
