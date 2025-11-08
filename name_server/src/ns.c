@@ -276,7 +276,7 @@ void* Handle_client(void* arg){
             printf(GREEN "[NS] ACK sent successfully.\n" NORMAL);
                 
             if (a == 0) {
-                if(add_file(hash, filename, ss_ip, ns_port, username_of_client) == -1){
+                if(add_file(hash, filename, ss_ip, client_port, username_of_client) == -1){
                      printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {
                      print(hash);

@@ -349,7 +349,7 @@ int main(){
             pkt.REQ_FLAG = READ_REQ_SS;
             strcpy(pkt.req_cmd, parsed.cmd[1]);
             payload_len = Pack(&pkt, buffer);
-        
+            printf("ip: %s port: %d\n",ss_ip,port); 
             printf("\n--------FILE DATA--------\n");
             int result = client_ss_read(buffer, ss_ip, port, payload_len);
         

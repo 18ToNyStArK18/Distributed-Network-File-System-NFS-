@@ -415,7 +415,7 @@ void* Handle_Client (void* arg) {
         }
 
         uint32_t body_len = ntohl(net_len);            // size of (flag + payload)
-        if (body_len > BUFFER_SIZE - sizeof(uint32_t)) {
+        if (body_len > BUFFER_SIZE) {
             fprintf(stderr, "Packet too large: %u\n", body_len);
             break;
         }
@@ -427,16 +427,9 @@ void* Handle_Client (void* arg) {
             break;
         }
 
-        // Your Unpack expects the buffer to BEGIN with the 4-byte length.
-        // So synthesize a temporary buffer: [len][flag][payload]
-        char pktbuf[BUFFER_SIZE];
-        memcpy(pktbuf, &net_len, sizeof(uint32_t));
-        memcpy(pktbuf + sizeof(uint32_t), body, body_len);
-
-        // --- Unpack ---
         uint32_t flag = (uint32_t)-1;
         char* filename = NULL;
-        Unpack(pktbuf, &flag, &filename);
+        Unpack(body, &flag, &filename);
 
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n",
                pthread_self(), client_ip, flag, filename ? filename : "(null)");
