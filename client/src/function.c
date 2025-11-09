@@ -94,6 +94,7 @@ int client_ss_stream(char *buffer,char *ip , int port,int size){
             break;
 
         printf("%s", cmd_str);
+        fflush(stdout);
     }
 
     close(ss_sock);
