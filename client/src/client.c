@@ -320,8 +320,12 @@ int main(){
             char *cmd_str;
             Unpack(buffer, &flag, &cmd_str);
 
-            if(flag != SS_IP_PORT){
-                printf(RED "File does not exist or no read access\n" NORMAL);
+            if(flag == NO_access){
+                printf(RED "Nice try You don't have the access\n" NORMAL);
+                continue;
+            }
+            if(flag == FILE_DOESNT_EXIST){
+                printf(RED "File Doesnt exists\n"NORMAL);    
                 continue;
             }
 
@@ -515,12 +519,14 @@ int main(){
             uint32_t flag = -1;
             char *cmd_str;
             Unpack(recv_buff, &flag, &cmd_str);
-
-            if(flag != SS_IP_PORT){
-                printf(RED "File does not exist or no read access\n" NORMAL);
+            if(flag == NO_access){
+                printf(RED "Nice try You don't have the access\n" NORMAL);
                 continue;
             }
-
+            if(flag == FILE_DOESNT_EXIST){
+                printf(RED "File Doesnt exists\n"NORMAL);    
+                continue;
+            }
             printf(GREEN "Storage Server for file: %s\n" NORMAL, cmd_str);
 
             // Parse SS location
@@ -586,8 +592,10 @@ int main(){
 
             if(flag == Success)
                 printf(GREEN"Added access Successfully\n"NORMAL);
+            else if (flag == Not_owner)
+                printf(RED"Nice Try but you are not the owner\n"NORMAL);
             else
-                printf(RED"Command Failed\n"NORMAL);
+                printf(RED"Command failed\n"NORMAL);
         }
         else if(strncmp(command_type, "REMACCESS",9)==0){
             // Remove all access
@@ -624,11 +632,13 @@ int main(){
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
-
             if(flag == Success)
-                printf(GREEN"Removed access Successfully\n"NORMAL);
+                printf(GREEN"Added access Successfully\n"NORMAL);
+            else if (flag == Not_owner)
+                printf(RED"Nice Try but you are not the owner\n"NORMAL);
             else
-                printf(RED"Command Failed\n"NORMAL);
+                printf(RED"Command failed\n"NORMAL);
+
         }
         else if(strncmp(command_type,"EXEC",4)==0){
             // execute the commands in that file

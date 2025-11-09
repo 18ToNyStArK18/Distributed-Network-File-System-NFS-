@@ -83,5 +83,12 @@ int Pack(Packet* pkt , char * buff);
 #define REG_FILES 26
 
 #define MAX_FILE_NAME_SIZE 1024
-#define Success 67
-#define Fail 69
+#define Success 27
+#define Fail 28
+
+
+
+//some error flags
+#define connection_issues 29
+#define Not_owner 30
+#define NO_access 31

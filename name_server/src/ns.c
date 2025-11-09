@@ -227,7 +227,7 @@ void* Handle_client(void* arg){
                 if (get_file_location(hash, filename, &loc)) {
 
                     if (can_read(hash, filename, username_of_client) == -1) {
-                        pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                        pkt.REQ_FLAG = NO_access;
                         printf("NO ACCESS\n");
                     }
                     else {
@@ -358,7 +358,8 @@ void* Handle_client(void* arg){
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));   
             pkt.REQ_FLAG = (a == 1 && b == 1) ? Success : Fail;
-
+            if(b==-1)
+                pkt.REQ_FLAG = Not_owner;
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
 
@@ -387,6 +388,8 @@ void* Handle_client(void* arg){
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));     
             pkt.REQ_FLAG = ((a == 1 && b == 1) ? Success : Fail);
+            if(b==-1)
+                pkt.REQ_FLAG = Not_owner;
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
@@ -415,6 +418,8 @@ void* Handle_client(void* arg){
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));     
             pkt.REQ_FLAG = ((a == 1  && b == 1) ? Success : Fail);
+            if(b==-1)
+                pkt.REQ_FLAG = Not_owner;
 
             char send_buff[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, send_buff);
@@ -441,12 +446,6 @@ void* Handle_client(void* arg){
             strcpy(msg,"ACK for the WRITE_REQ");
 
         }
-        else if (flag == REG_SS) { 
-            // need to store all the ips and ports of storage servers in a hash map
-            strcpy(msg,"ACK for the REG_SS");
-
-        }
-
 
     }
 
