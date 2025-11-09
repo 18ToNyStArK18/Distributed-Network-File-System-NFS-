@@ -599,21 +599,21 @@ void* Handle_Client (void* arg) {
             }
 
             char sentence[BUFFER_SIZE];
-            int idx = 0, sentence_idx = 0;
+            int idx = 0, sentence_idx_table = 0;
             int c;
             bool lock_held = false;
 
             while (1) {
                 // Lock at the START of a sentence (before reading its first char)
-                if (idx == 0 && sentence_idx < table->sentence_count) {
-                    pthread_rwlock_rdlock(&table->sentences[sentence_idx].lock);
+                if (idx == 0 && sentence_idx_table < table->sentence_count) {
+                    pthread_rwlock_rdlock(&table->sentences[sentence_idx_table].lock);
                     lock_held = true;
                 }
 
                 c = fgetc(fp);
                 if (c == EOF) {
                     if (lock_held) {
-                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                        pthread_rwlock_unlock(&table->sentences[sentence_idx_table].lock);
                         lock_held = false;
                     }
                     break;
@@ -631,8 +631,10 @@ void* Handle_Client (void* arg) {
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = STREAM_DATA;
                     while(sentence_idx < idx){
-                        while(sentence[sentence_idx] != ' ' && sentence_idx < idx){
+                        while(sentence_idx < idx){
                             word[word_indx++]=sentence[sentence_idx++];
+                            if(sentence[sentence_idx-1] == ' ')
+                                break;
                         }
                         word[word_indx]='\0';
                         word_indx = 0;
@@ -663,7 +665,7 @@ void* Handle_Client (void* arg) {
                     }
 
                     idx = 0;
-                    sentence_idx++;
+                    sentence_idx_table++;
                 }
 
                 // Very long sentence chunking (keep the SAME lock held)
@@ -699,13 +701,13 @@ void* Handle_Client (void* arg) {
             if (idx > 0) {
                 sentence[idx] = '\0';
                 char word[100];
-                int word_indx =0;
+                int word_indx =0, sentence_idx = 0;
 
                 Packet pkt;
                 memset(&pkt, 0, sizeof(pkt));
                 pkt.REQ_FLAG = STREAM_DATA;
                 strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
-                while(sentence_idx < idx){
+                while(sentence_idx_table < idx){
                     while(sentence[sentence_idx] != ' ' && sentence_idx < idx){
                         word[word_indx++]=sentence[sentence_idx++];
                     }
@@ -724,7 +726,7 @@ void* Handle_Client (void* arg) {
                     if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
                         perror("send_all failed");
                         if (lock_held) {
-                            pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                            pthread_rwlock_unlock(&table->sentences[sentence_idx_table].lock);
                             lock_held = false;
                         }
                         break;
@@ -733,7 +735,7 @@ void* Handle_Client (void* arg) {
                 }
 
                 if (lock_held) {
-                    pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
+                    pthread_rwlock_unlock(&table->sentences[sentence_idx_table].lock);
                     lock_held = false;
                 }
             }
