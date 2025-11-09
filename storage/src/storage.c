@@ -452,6 +452,7 @@ void* Handle_Client (void* arg) {
             int idx = 0, sentence_idx = 0;
             int c;
             bool lock_held = false;
+            pthread_mutex_t flag_lock = PTHREAD_MUTEX_INITIALIZER;
 
             while (1) {
                 // Lock at the START of a sentence (before reading its first char)
@@ -462,10 +463,12 @@ void* Handle_Client (void* arg) {
 
                 c = fgetc(fp);
                 if (c == EOF) {
+                    pthread_mutex_lock(&flag_lock);
                     if (lock_held) {
                         pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
                         lock_held = false;
                     }
+                    pthread_mutex_unlock(&flag_lock);
                     break;
                 }
 
@@ -499,10 +502,12 @@ void* Handle_Client (void* arg) {
                     }
 
                     // Release the sentence lock now that it’s fully sent
+                    pthread_mutex_lock(&flag_lock);
                     if (lock_held) {
                         pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
                         lock_held = false;
                     }
+                    pthread_mutex_unlock(&flag_lock);
 
                     idx = 0;
                     sentence_idx++;
@@ -556,10 +561,12 @@ void* Handle_Client (void* arg) {
                 send_all(new_socket, send_buff, bytes_to_send);
 
                 // If we still hold the lock (partial last sentence), release it
+                pthread_mutex_lock(&flag_lock);
                 if (lock_held) {
                     pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
                     lock_held = false;
                 }
+                pthread_mutex_unlock(&flag_lock);
             }
 
             fclose(fp);
@@ -582,6 +589,7 @@ void* Handle_Client (void* arg) {
         }
         else if (flag == WRITE_REQ) {
             // write file
+            FILE* fp;
         }
         else if (flag == STREAM) {
             // send contents of file line by line
