@@ -128,7 +128,7 @@ Hashmap *create_hashmap(int size){
     return map;
 }
 
-int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
+int add_file(Hashmap *map, char *filename, char *ip, int port,char *username,int ns_ss_port){
     long hash = hash_fucn(filename);
     int idx = abs(hash) % map->size;
 
@@ -140,6 +140,7 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username){
     }
     Hashnode *newnode = (Hashnode *)malloc(sizeof(Hashnode));
     newnode->location.ss_port = port;
+    newnode->location.ns_ss_port = ns_ss_port;
     newnode->filename = strdup(filename);
     rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
     rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
@@ -686,4 +687,74 @@ void print_info(Hashmap *map, char *filename, int socket){
     if(send_all(socket,buffer,bytes_to_send) <= 0){
         printf(RED"ERROR\n"NORMAL);
     }
+}
+void execute_file(char *filename, char *ip, int port, int client_socket){
+    int ss_socket;
+    struct sockaddr_in ss_addr;
+    if((ss_socket = socket(AF_INET,SOCK_STREAM,0)) < 0){
+        printf("Failed\n");
+        return;
+    }
+    ss_addr.sin_family = AF_INET;
+    ss_addr.sin_port = htons(port);
+    if(inet_pton(AF_INET,ip,&ss_addr.sin_addr) <= 0){
+        printf("Invalid IP %s...\n",ip);
+        return;
+    }
+    if(connect(ss_socket,(struct sockaddr *)&ss_addr,sizeof(ss_addr)) < 0){
+        printf("Connection failed\n");
+        return;
+    }
+    
+    Packet pkt;
+    pkt.REQ_FLAG = EXEC;
+    strcpy(pkt.req_cmd,filename);
+    char send_buff[BUFFER_SIZE];
+    int payload = Pack(&pkt,send_buff);
+    uint32_t net_len = htonl(payload);
+    send_all(ss_socket,&net_len,sizeof(net_len));
+    send_all(ss_socket,send_buff,payload);
+
+    printf("Sent EXEC %s to the storage server %s:%d\n",filename,ip,port);
+    char recv_buffer[BUFFER_SIZE];
+    uint32_t reply_net_len;
+    int reply_len;
+    FILE *fp = fopen(filename,"w"); 
+    while(1){
+        recv_all(ss_socket,&reply_net_len,sizeof(reply_net_len));
+        reply_len = ntohl(reply_net_len);
+        recv_all(ss_socket,recv_buffer,reply_len);
+        uint32_t flag;
+        char *cmd_str;
+        Unpack(recv_buffer,&flag,&cmd_str);
+        if(flag == EXEC_DATA)
+            fputs(cmd_str,fp);
+        else
+            break;
+    }
+    close(ss_socket);
+    fclose(fp);
+
+    chmod(filename,0700);
+    printf("Got the entirefile and the execution of the file starts\n");
+    char temp_file[MAX_FILE_NAME_SIZE];
+    sprintf(temp_file,"/bin/bash %s",filename);
+    FILE *pipe = popen(temp_file,"r");
+    char line_buff[BUFFER_SIZE];
+    Packet out_pkt;
+    out_pkt.REQ_FLAG = EXEC_DATA;
+    while(fgets(line_buff,sizeof(line_buff),pipe)){
+        strcpy(out_pkt.req_cmd,line_buff);
+        int bytes_to_send = Pack(&out_pkt,send_buff);
+        net_len = htonl(bytes_to_send);
+        send_all(client_socket,&net_len,sizeof(net_len));
+        send_all(client_socket,send_buff,bytes_to_send);
+    }
+    pclose(pipe);
+    out_pkt.REQ_FLAG = EXEC_END;
+    int bytes_to_send = Pack(&out_pkt,send_buff);
+    net_len = htonl(bytes_to_send);
+    send_all(client_socket,&net_len,sizeof(net_len));
+    send_all(client_socket, send_buff, bytes_to_send);
+    return;
 }

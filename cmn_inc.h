@@ -92,3 +92,8 @@ int Pack(Packet* pkt , char * buff);
 #define connection_issues 29
 #define Not_owner 30
 #define NO_access 31
+
+
+//EXEC
+#define EXEC_DATA 32
+#define EXEC_END 33

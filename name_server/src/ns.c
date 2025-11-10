@@ -290,7 +290,7 @@ void* Handle_client(void* arg){
             if (a == 0) {
                 if(add_file_to_user(filename,username_of_client,&users)==-1)
                         printf("ERROR\n");
-                if(add_file(hash, filename, ss_ip, client_port, username_of_client) == -1){
+                if(add_file(hash, filename, ss_ip, client_port, username_of_client,ns_port) == -1){
                     printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {
                     print(hash);
@@ -433,6 +433,25 @@ void* Handle_client(void* arg){
         }
         else if(flag == EXEC){
             //need to send the packet to the ss and the ss will send line by line and will be executed in the ns
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            filelocation loc;
+            if(get_file_location(hash,filename,&loc)){
+               execute_file(filename,loc.ip,loc.ns_ss_port,new_socket); 
+            }
+            else{
+                Packet pkt;
+                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                char send_buff[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt, send_buff);
+
+                uint32_t net_len = htonl(bytes_to_send);
+                if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                    printf(RED "[NS] ERROR: Failed to send REMACCESS length.\n" NORMAL);
+                }
+
+                send_all(new_socket, send_buff, bytes_to_send);
+            }
             strcpy(msg,"ACK for the EXEC");
 
         }

@@ -3,6 +3,7 @@
 #include "../../cmn_inc.h"
 #include "../inc/locks.h"
 #include <pthread.h>
+#include <stdint.h>
 #include <time.h>
 #include <assert.h>
 
@@ -383,6 +384,27 @@ void* Handle_NS (void* arg) {
         }
         else if (flag == EXEC) {
             // send contents of file line by line
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            FILE *fp = fopen(filename,"r");
+            char line_buffer[1000];
+            Packet pkt;
+            pkt.REQ_FLAG = EXEC_DATA;
+            char send_buff[BUFFER_SIZE];
+            int payload;
+            while(fgets(line_buffer,sizeof(line_buffer),fp)){
+                strcpy(pkt.req_cmd,line_buffer);
+                payload = Pack(&pkt,send_buff);
+                uint32_t net_len = htonl(payload);
+                send_all(ns_fd,&net_len,sizeof(net_len));
+                send_all(ns_fd,send_buff,payload);
+            }
+            pkt.REQ_FLAG = EXEC_END;
+            payload = Pack(&pkt,send_buff);
+            uint32_t net_len = htonl(payload);
+            send_all(ns_fd,&net_len,sizeof(net_len));
+            send_all(ns_fd,send_buff,payload);
+            printf("Sent the entire file\n");
         }
     }
 
@@ -432,7 +454,7 @@ void* Handle_Client (void* arg) {
         Unpack(body, &flag, &filename);
 
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n",
-               pthread_self(), client_ip, flag, filename ? filename : "(null)");
+                pthread_self(), client_ip, flag, filename ? filename : "(null)");
 
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
@@ -589,7 +611,6 @@ void* Handle_Client (void* arg) {
         }
         else if (flag == WRITE_REQ) {
             // write file
-            FILE* fp;
         }
         else if (flag == STREAM) {
             // send contents of file line by line

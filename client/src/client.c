@@ -643,6 +643,7 @@ int main(){
         else if(strncmp(command_type,"EXEC",4)==0){
             // execute the commands in that file
             pkt.REQ_FLAG = EXEC;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
 
             int payload_len = Pack(&pkt, buffer);
 
@@ -654,30 +655,32 @@ int main(){
             printf(GREEN"Packet sent Successfully\n"NORMAL);
 
             // ---- RECEIVE response length ----
-            uint32_t resp_len_net;
-            if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
-                printf(RED "Error receiving response length\n" NORMAL);
-                continue;
+            while(1){
+                uint32_t resp_len_net;
+                if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
+                    printf(RED "Error receiving response length\n" NORMAL);
+                    continue;
+                }
+                uint32_t resp_len = ntohl(resp_len_net);
+
+                // ---- RECEIVE full response ----
+                char recv_buff[BUFFER_SIZE];
+                memset(recv_buff, 0, BUFFER_SIZE);
+
+                if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
+                    printf(RED "Error receiving EXEC response\n" NORMAL);
+                    continue;
+                }
+
+                uint32_t flag = -1;
+                char *cmd_str;
+                Unpack(recv_buff,&flag,&cmd_str);
+                if(flag == EXEC_END)
+                    break;
+                else
+                    printf("%s",cmd_str);
+
             }
-            uint32_t resp_len = ntohl(resp_len_net);
-
-            // ---- RECEIVE full response ----
-            char recv_buff[BUFFER_SIZE];
-            memset(recv_buff, 0, BUFFER_SIZE);
-
-            if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
-                printf(RED "Error receiving EXEC response\n" NORMAL);
-                continue;
-            }
-
-            uint32_t flag = -1;
-            char *cmd_string;
-            Unpack(recv_buff, &flag, &cmd_string);
-
-            if(flag == Success)
-                printf(GREEN"Executed the file Successfully\n"NORMAL);
-            else
-                printf(RED"Command Failed\n"NORMAL);
         }
         else if(strncmp(command_type,"UNDO",4)==0){
             printf("[%s] Requested UNDO Filename: %s\n", user_name, parsed.cmd[1]);

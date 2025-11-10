@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <arpa/inet.h>
 #include "../../cmn_inc.h"
 
@@ -23,6 +24,7 @@ typedef struct{
 
 typedef struct{
     int ss_port;
+    int ns_ss_port;
     char ip[INET_ADDRSTRLEN];
 }filelocation;
 
@@ -59,7 +61,7 @@ void removeusername(char *,userdatabase *);
 //hash map functions to get the location of the file
 Hashmap * create_hashmap(int size);
 //add a file name
-int add_file(Hashmap *map,char *filename,char *ip,int port,char *username);
+int add_file(Hashmap *map,char *filename,char *ip,int port,char *username,int ns_ss_port);
 //remove a file data
 int delete_file(Hashmap *map,char *filename);
 //fetch the data of the file
@@ -78,3 +80,4 @@ void print_details(char *filename,Hashmap *map);
 void print_view(char *username,userdatabase *users,Hashmap *map,int a, int l,int socket);
 int is_owner(char *username,char *filename,Hashmap *map);
 void print_info(Hashmap *map,char *filename,int socket);
+void execute_file(char *filename,char *ip,int port,int client_socket);
