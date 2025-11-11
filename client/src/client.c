@@ -675,7 +675,15 @@ int main(){
                 uint32_t flag = -1;
                 char *cmd_str;
                 Unpack(recv_buff,&flag,&cmd_str);
-                if(flag == EXEC_END)
+                if(flag == FILE_DOESNT_EXIST){
+                    printf(RED"File doesn't exist\n"NORMAL);
+                    break;
+                }
+                else if(flag == NO_access){
+                    printf(RED"Nice try but you don't have the access to execute\n"NORMAL);
+                    break;
+                }
+                else if(flag == EXEC_END)
                     break;
                 else
                     printf("%s",cmd_str);

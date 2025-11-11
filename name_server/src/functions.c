@@ -491,13 +491,25 @@ void print_file_data(Hashmap *map,char *filename,char *buffer){
    while(current){
         if(strcmp(current->filename,filename)==0){
             //print the details of the file
-            sprintf(buffer,"|%s\t|%d\t|%d\t|%s\t|%s\t|\n",filename,current->wc,current->chars,current->time,current->Owner);
+            sprintf(buffer,"| %-13s | %5d | %5d | %-16s | %-10s |\n",filename,current->wc,current->chars,current->time,current->Owner);
             return;
         }
     }
    printf("NOOO\n");
 }
 void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l, int socket){
+
+    if(l){
+        char temp_buff[1024];
+        Packet pkt;
+        pkt.REQ_FLAG = VIEW_DATA;
+        sprintf(temp_buff,"| %-13s | %-5s | %-5s | %-16s | %-10s |\n","Filename","Words","Chars","Last Access Time","Owner");
+        strcpy(pkt.req_cmd,temp_buff);
+        int bytes_to_send = Pack(&pkt,temp_buff);
+        uint32_t net_len = htonl(bytes_to_send);
+        send_all(socket,&net_len,sizeof(net_len));
+        send_all(socket,temp_buff,bytes_to_send);
+    }
     if(!a){
         int n=users->num_of_users;
         for(int i=0;i<n;i++){
@@ -562,7 +574,6 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
             }
         }
     }
-
     Packet pkt;
     pkt.REQ_FLAG = VIEW_END;
     char buffer[BUFFER_SIZE];

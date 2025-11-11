@@ -97,3 +97,5 @@ int Pack(Packet* pkt , char * buff);
 //EXEC
 #define EXEC_DATA 32
 #define EXEC_END 33
+
+#define USER_NOT_FOUND 34

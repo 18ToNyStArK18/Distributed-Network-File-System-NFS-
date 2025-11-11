@@ -437,7 +437,19 @@ void* Handle_client(void* arg){
             strcpy(filename,cmd_string);
             filelocation loc;
             if(get_file_location(hash,filename,&loc)){
-               execute_file(filename,loc.ip,loc.ns_ss_port,new_socket); 
+                if (can_read(hash, filename, username_of_client) == -1) {
+                    Packet pkt;
+                    pkt.REQ_FLAG = NO_access;
+                    printf("NO ACCESS\n");
+                    char send_buff[1024];
+                    int bytes_to_send = Pack(&pkt,send_buff);
+                    uint32_t net_len = htonl(bytes_to_send);
+                    send_all(new_socket,&net_len,sizeof(net_len));
+                    send_all(new_socket,send_buff,bytes_to_send);
+                    continue;
+                }
+
+                execute_file(filename,loc.ip,loc.ns_ss_port,new_socket); 
             }
             else{
                 Packet pkt;
