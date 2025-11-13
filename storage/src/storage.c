@@ -453,8 +453,7 @@ void* Handle_Client (void* arg) {
         char* filename = NULL;
         Unpack(body, &flag, &filename);
 
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n",
-                pthread_self(), client_ip, flag, filename ? filename : "(null)");
+        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, filename ? filename : "(null)");
 
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
@@ -611,6 +610,38 @@ void* Handle_Client (void* arg) {
         }
         else if (flag == WRITE_REQ) {
             // write file
+            char write_filename[MAX_FILE_NAME_SIZE];
+            int sentence_idx;
+            sscanf(filename, "%s %d", write_filename, &sentence_idx); // because first line of WRITE is file + sentence idx
+            printf("[Thread %ld] Writiing to file: %s, sentence: %d\n", pthread_self(), write_filename, sentence_idx);
+            char content[BUFFER_SIZE];
+            uint32_t net_len;
+
+            while (1) { 
+                if (recv_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                    printf(RED "ERROR: Failed to read WRITE length.\n" NORMAL);
+                }
+
+                uint32_t content_len = ntohl(net_len);
+                if (recv_all(new_socket, content, sizeof(content_len)) <= 0) {
+                    printf(RED "ERROR: Failed to read WRITE content.\n" NORMAL);
+                }
+
+                uint32_t flag;
+                char* payload = NULL;
+
+                Unpack(content, &flag, &payload);
+
+                if(strcmp(payload, "ETIRW" == 0)) {
+                    printf("End of WRITE session for file: %s", write_filename);
+                    free(payload);
+                    break;
+                }
+
+                int word_index;
+                char words[BUFFER_SIZE];
+                sscanf(payload, "%d %[^\n]", &word_index, words);
+            }
         }
         else if (flag == STREAM) {
             // send contents of file line by line
@@ -830,6 +861,7 @@ FileLockTable* get_or_build_sentence_table(const char *filename) {
 
     // Allocate table
     entry->sentences = calloc(entry->sentence_count, sizeof(SentenceLock));
+    entry->versions = calloc(entry->sentence_count, sizeof(int));
     int idx = 0;
     pos = 0; start = 0;
 

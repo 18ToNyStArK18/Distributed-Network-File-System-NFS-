@@ -1,5 +1,6 @@
 #include <pthread.h>
 #include <sys/types.h>
+#include "../cmn_inc.h"
 
 #define MAX_CONNS 20
 
@@ -10,9 +11,10 @@ typedef struct {
 } SentenceLock;
 
 typedef struct {
-    char filename[128];
+    char filename[MAX_FILE_NAME_SIZE];
     SentenceLock *sentences;
     int sentence_count;
+    int* versions;
 } FileLockTable;
 
 FileLockTable file_locks[MAX_CONNS];
