@@ -1,5 +1,6 @@
 #include "../inc/ns.h"
 #include "../inc/ip.h"
+#include "../inc/heap.h"
 #include "assert.h"
 #include <pthread.h>
 #include <string.h>
@@ -9,6 +10,7 @@ userdatabase users;
 int ns_port, client_port; // ns_port is for ss and ns connection, client_port is for client and ss connection
 char ss_ip[40];
 Hashmap *hash;
+MinHeap *minheap;
 
 void* Client_listener_thread (void *arg);
 void* Storage_listener_thread (void *arg);
@@ -268,7 +270,10 @@ void* Handle_client(void* arg){
             char forward_buff[BUFFER_SIZE];
             int forward_size = Pack(&forward_pkt, forward_buff);
 
-            int a = send_to_SS(forward_buff, ss_ip, ns_port, forward_size);
+            Node send;
+            heap_peek(minheap, &send);
+
+            int a = send_to_SS(forward_buff, send.ss_ip, send.ns_port, forward_size);
 
             printf("[NS] Sending ACK back to client...\n");
 
@@ -294,6 +299,8 @@ void* Handle_client(void* arg){
                     printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {
                     print(hash);
+                    send.num_files++;
+                    heap_fix(minheap, 0);
                 }
             }
         }
@@ -315,7 +322,11 @@ void* Handle_client(void* arg){
             char forward_buff[BUFFER_SIZE];
             int forward_size = Pack(&forward_pkt, forward_buff);
 
-            int a = send_to_SS(forward_buff, ss_ip, ns_port, forward_size);
+            char delete_ip[INET_ADDRSTRLEN];
+            int delete_port;
+            find_ip_by_filename(cmd_string, hash, delete_ip, &delete_port);
+
+            int a = send_to_SS(forward_buff, delete_ip, delete_port, forward_size);
 
             printf("[NS] Sending ACK back to client...\n");
 
@@ -338,6 +349,15 @@ void* Handle_client(void* arg){
             if (a == 0) {
                 if (delete_file(hash, cmd_string) == -1) {
                     printf(RED "[NS] ERROR removing file from hashmap\n" NORMAL);
+                }
+                else{
+                    for (int i = 0; i < minheap->size; i++) {
+                        if (strcmp(minheap->arr[i].ss_ip, delete_ip) == 0 && minheap->arr[i].ns_port == delete_port) {
+                            minheap->arr[i].num_files--;
+                            heap_fix(minheap, i);
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -486,6 +506,10 @@ void* Handle_client(void* arg){
 
 int main() {
     hash = create_hashmap(1024);
+    minheap = heap_init();
+    if (!minheap) {
+        perror("heap init failed.");
+    }
     int server_fd;
     struct sockaddr_in address;
     users.num_of_users = 0;
@@ -687,6 +711,10 @@ void* Handle_storage_server(void* arg) {
             printf("IP: %s\n", ss_ip);
             printf("NS_PORT: %d\n", ns_port);
             printf("CLIENT_PORT: %d\n", client_port);
+
+            Node node;
+            node_init(&node, ss_ip, client_port, ns_port);
+            heap_push(minheap, node);
 
             // Build ACK response packet
             Packet reply;

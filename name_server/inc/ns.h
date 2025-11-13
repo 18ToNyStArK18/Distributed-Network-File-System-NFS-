@@ -81,3 +81,4 @@ void print_view(char *username,userdatabase *users,Hashmap *map,int a, int l,int
 int is_owner(char *username,char *filename,Hashmap *map);
 void print_info(Hashmap *map,char *filename,int socket);
 void execute_file(char *filename,char *ip,int port,int client_socket);
+void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port);

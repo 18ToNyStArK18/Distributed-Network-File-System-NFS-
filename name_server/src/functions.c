@@ -769,3 +769,20 @@ void execute_file(char *filename, char *ip, int port, int client_socket){
     send_all(client_socket, send_buff, bytes_to_send);
     return;
 }
+
+void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while (current != NULL) {
+        if (strcmp(current->filename, filename) == 0) {
+            strcpy(ip, current->location.ip);
+            *port = current->location.ns_ss_port;
+            return;
+        }
+        current = current->next;
+    }
+    return;
+}
