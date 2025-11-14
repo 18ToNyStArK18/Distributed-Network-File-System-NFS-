@@ -234,11 +234,13 @@ void* Handle_client(void* arg){
                         loc.ns_ss_port = cache[i].ns_ss_port;
                         loc.ss_port = cache[i].c_ss_port;
                         strcpy(loc.ip,cache[i].ip);
+                        printf("Cache Hit\n");
                     }
                 }
 
                 if (loc.ns_ss_port != -1 || get_file_location(hash, filename, &loc)) {
                     if(flag == 0){
+                        printf("Cache miss\n");
                         int temp_idx = cache_indx % cache_size;
                         cache[temp_idx].c_ss_port = loc.ss_port;
                         cache[temp_idx].ns_ss_port = loc.ns_ss_port;
@@ -366,7 +368,14 @@ void* Handle_client(void* arg){
             Packet reply_pkt;
             memset(&reply_pkt, 0, sizeof(reply_pkt));
             reply_pkt.REQ_FLAG = (a == 0) ? Success : FILE_DOESNT_EXIST;
-
+            if(a==0){
+                for(int i=0;i<cache_size;i++){
+                    if(strcmp(cache[i].filename,cmd_string)==0){
+                        printf("Removed the deleted files data from cache\n");
+                        strcpy(cache[i].filename,"\0");
+                    }
+                }
+            }
             char reply_buff[BUFFER_SIZE];
             int reply_size = Pack(&reply_pkt, reply_buff);
 
