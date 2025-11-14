@@ -11,6 +11,8 @@ int ns_port, client_port; // ns_port is for ss and ns connection, client_port is
 char ss_ip[40];
 Hashmap *hash;
 MinHeap *minheap;
+cache_node cache[cache_size];
+int cache_indx=0;
 
 void* Client_listener_thread (void *arg);
 void* Storage_listener_thread (void *arg);
@@ -95,7 +97,7 @@ void* Handle_client(void* arg){
 
     while (1) {
         uint32_t net_packet_len;
-    
+
         // --- Step 1: Read packet length (4 bytes) ---
         if (recv_all(new_socket, &net_packet_len, sizeof(uint32_t)) <= 0) {
             printf("[Thread %ld] Client %s disconnected.\n", pthread_self(), client_ip);
@@ -141,19 +143,19 @@ void* Handle_client(void* arg){
             else {
                 result_flag = NO_USER_SLOTS;
             }
-        
+
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));          
             pkt.REQ_FLAG = result_flag;
             strcpy(pkt.req_cmd, cmd_string);       
-        
+
             int bytes_to_send = Pack(&pkt, buffer);
 
             uint32_t net_len = htonl(bytes_to_send);
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send USER_REG length.\n" NORMAL);
             }
-        
+
             if (send_all(new_socket, buffer, bytes_to_send) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send USER_REG response.\n" NORMAL);
             }
@@ -221,13 +223,29 @@ void* Handle_client(void* arg){
             }
             else {
                 filelocation loc;
+                loc.ns_ss_port = -1;
                 char filename[MAX_FILE_NAME_SIZE];
                 strcpy(filename, cmd_string);
-
+                int flag = 0;
                 print_details(filename, hash);
+                for(int i=0;i<cache_size;i++){
+                    if(strcmp(filename, cache[i].filename)==0){
+                        flag = 1;
+                        loc.ns_ss_port = cache[i].ns_ss_port;
+                        loc.ss_port = cache[i].c_ss_port;
+                        strcpy(loc.ip,cache[i].ip);
+                    }
+                }
 
-                if (get_file_location(hash, filename, &loc)) {
-
+                if (loc.ns_ss_port != -1 || get_file_location(hash, filename, &loc)) {
+                    if(flag == 0){
+                        int temp_idx = cache_indx % cache_size;
+                        cache[temp_idx].c_ss_port = loc.ss_port;
+                        cache[temp_idx].ns_ss_port = loc.ns_ss_port;
+                        strcpy(cache[temp_idx].ip,loc.ip);
+                        strcpy(cache[temp_idx].filename,filename);
+                        cache_indx++;
+                    }
                     if (can_read(hash, filename, username_of_client) == -1) {
                         pkt.REQ_FLAG = NO_access;
                         printf("NO ACCESS\n");
@@ -259,6 +277,18 @@ void* Handle_client(void* arg){
         else if(flag == CREATE_REQ){
             char filename[MAX_FILE_NAME_SIZE];
             strcpy(filename, cmd_string);
+
+            int file = is_file_present(filename,hash);
+            if(file == -1){
+                Packet pkt;
+                pkt.REQ_FLAG = FILE_ALREADY_EXISTS;
+                char send_buff[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt,send_buff);
+                uint32_t net_len = ntohl(bytes_to_send);
+                send_all(new_socket,&net_len,sizeof(uint32_t));
+                send_all(new_socket,send_buff,bytes_to_send);
+                continue; 
+            }
 
             printf("[NS] Forwarding CREATE to SS...\n");
 
@@ -296,7 +326,7 @@ void* Handle_client(void* arg){
 
             if (a == 0) {
                 if(add_file_to_user(filename,username_of_client,&users)==-1)
-                        printf("ERROR\n");
+                    printf("ERROR\n");
                 if(add_file(hash, filename, send->ss_ip, send->client_port, username_of_client,send->ns_port) == -1){
                     printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {

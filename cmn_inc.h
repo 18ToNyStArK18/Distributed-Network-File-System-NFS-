@@ -22,6 +22,7 @@
 #define MAX_WORDS_IN_INP 30 
 #define MAX_WORD_SIZE 1024
 #define max_inp 1024
+#define cache_size 25
 #define max_username 1024
 #define RED "\x1b[31m"
 #define GREEN "\x1b[32m"

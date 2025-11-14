@@ -44,7 +44,12 @@ typedef struct Hashnode{
     struct rw_access *read;
     struct rw_access *write;
 }Hashnode;
-
+typedef struct{
+    char filename[MAX_FILE_NAME_SIZE];
+    char ip[INET6_ADDRSTRLEN];
+    int c_ss_port;
+    int ns_ss_port;
+}cache_node;
 typedef struct Hashmap{
     int size;
     Hashnode **buckets;
@@ -58,15 +63,10 @@ int reg_user(char *cmd_string,userdatabase *users);
 void removeusername(char *,userdatabase *);
 
 
-//hash map functions to get the location of the file
 Hashmap * create_hashmap(int size);
-//add a file name
 int add_file(Hashmap *map,char *filename,char *ip,int port,char *username,int ns_ss_port);
-//remove a file data
 int delete_file(Hashmap *map,char *filename);
-//fetch the data of the file
 int get_file_location(Hashmap *map, char*filename, filelocation* out);
-//free Hashmap
 void free_hashmap(Hashmap *map);
 int add_r_access(Hashmap *map,char *filename,char *username);
 int add_w_access(Hashmap *map,char *filename,char *username);
@@ -82,3 +82,4 @@ int is_owner(char *username,char *filename,Hashmap *map);
 void print_info(Hashmap *map,char *filename,int socket);
 void execute_file(char *filename,char *ip,int port,int client_socket);
 void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port);
+int is_file_present(char *filename,Hashmap *map);

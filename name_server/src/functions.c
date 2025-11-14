@@ -786,3 +786,18 @@ void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port){
     }
     return;
 }
+
+int is_file_present(char *filename, Hashmap *map){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+
+    Hashnode *current = map->buckets[index];
+
+    while(current){
+        if(strcmp(filename,current->filename)==0)
+            return -1;
+        current = current->next;
+    }
+    return 1;
+
+}
