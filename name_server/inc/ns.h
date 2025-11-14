@@ -65,7 +65,7 @@ void removeusername(char *,userdatabase *);
 
 Hashmap * create_hashmap(int size);
 int add_file(Hashmap *map,char *filename,char *ip,int port,char *username,int ns_ss_port);
-int delete_file(Hashmap *map,char *filename);
+int delete_file(Hashmap *map,char *filename,userdatabase *users);
 int get_file_location(Hashmap *map, char*filename, filelocation* out);
 void free_hashmap(Hashmap *map);
 int add_r_access(Hashmap *map,char *filename,char *username);
@@ -83,3 +83,4 @@ void print_info(Hashmap *map,char *filename,int socket);
 void execute_file(char *filename,char *ip,int port,int client_socket);
 void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port);
 int is_file_present(char *filename,Hashmap *map);
+int update_filename(char *filename,Hashmap *map,int client_port,int ns_port);

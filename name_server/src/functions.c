@@ -189,8 +189,27 @@ int get_file_location(Hashmap *map, char *filename, filelocation *out){
     }
     return 0;
 }
-
-int delete_file(Hashmap *map,char *filename){
+int delete_file_from_every_user(char *filename,userdatabase *users){
+    int i = 0;
+    int n = users->num_of_users;
+    for (int i=0;i<n;i++){
+        filename_foruser *it = users->username_arr[i].files,*prev=NULL;
+        while(it != NULL){
+            if(strcmp(it->filename,filename)==0){
+                if(prev)
+                    prev->next = it->next;
+                else
+                    users->username_arr[i].files = it->next;
+                free(it);
+                break;
+            }
+            prev = it;
+            it = it->next;
+        }
+    }
+    return -1;
+}
+int delete_file(Hashmap *map,char *filename,userdatabase *users){
     long hash = hash_fucn(filename);
     int index = abs(hash) % map->size;
 
@@ -199,7 +218,7 @@ int delete_file(Hashmap *map,char *filename){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
-            
+            delete_file_from_every_user(filename,users); 
             if (prev == NULL) {
                 map->buckets[index] = current->next;
             } else {
@@ -225,12 +244,12 @@ void free_hashmap(Hashmap *map) {
         while (current != NULL) {
             Hashnode *temp = current;
             current = current->next;
-            
+
             free(temp->filename);
             free(temp);
         }
     }
-    
+
     free(map->buckets); 
     free(map);          
 }
@@ -252,7 +271,7 @@ int add_r_access(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
-            
+
             rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
             if(alr_has_access(current->read,username)==1)
                 return 1;
@@ -439,7 +458,7 @@ int delete_file_from_user(char *filename, char *username, userdatabase *users){
     return -1;
 }
 void print(Hashmap *map){
-    
+
     int size = map->size;
     for(int i=0;i<size;i++){
         Hashnode *curr = map->buckets[i];
@@ -483,19 +502,19 @@ void print_details(char *filename, Hashmap *map){
 
 }
 void print_file_data(Hashmap *map,char *filename,char *buffer){
-   long hash = hash_fucn(filename);
-   int index = abs(hash) % map->size;
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
 
-   Hashnode *current = map->buckets[index];
+    Hashnode *current = map->buckets[index];
 
-   while(current){
+    while(current){
         if(strcmp(current->filename,filename)==0){
             //print the details of the file
             sprintf(buffer,"| %-13s | %5d | %5d | %-16s | %-10s |\n",filename,current->wc,current->chars,current->time,current->Owner);
             return;
         }
     }
-   printf("NOOO\n");
+    printf("NOOO\n");
 }
 void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l, int socket){
 
@@ -598,8 +617,8 @@ int is_owner(char *username, char *filename,Hashmap *map){
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
 
-           if(strcmp(current->Owner,username)==0)
-               return 1;
+            if(strcmp(current->Owner,username)==0)
+                return 1;
             return -1;
         }
         current = current->next;
@@ -716,7 +735,7 @@ void execute_file(char *filename, char *ip, int port, int client_socket){
         printf("Connection failed\n");
         return;
     }
-    
+
     Packet pkt;
     pkt.REQ_FLAG = EXEC;
     strcpy(pkt.req_cmd,filename);
@@ -800,4 +819,21 @@ int is_file_present(char *filename, Hashmap *map){
     }
     return 1;
 
+}
+
+int update_filename(char *filename,Hashmap *map, int client_port , int ns_port){
+
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+    Hashnode *current = map->buckets[index];
+
+    while(current){
+        if(strcmp(current->filename,filename)==0){
+            current->location.ns_ss_port = ns_port;
+            current->location.ss_port = client_port;
+            return 1;
+        }
+    }
+    printf("Unexpected file registered\n");
+    return -1;
 }

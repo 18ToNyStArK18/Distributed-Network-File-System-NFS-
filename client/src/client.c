@@ -481,6 +481,10 @@ int main(){
                 printf(RED "Command Failed\n" NORMAL);
                 continue;
             }
+            else if(flag == Not_owner){
+                printf(RED"Nice Try but you are not the owner\n"NORMAL);
+                continue;
+            }
 
             assert(flag == Success);
             printf(GREEN "File deletion Success\n" NORMAL);

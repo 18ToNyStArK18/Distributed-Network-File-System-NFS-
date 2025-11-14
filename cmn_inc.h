@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <assert.h>
 #include <arpa/inet.h>
+#include <dirent.h>
 
 #define MAX_WORDS_IN_INP 30 
 #define MAX_WORD_SIZE 1024
@@ -100,3 +101,6 @@ int Pack(Packet* pkt , char * buff);
 #define EXEC_END 33
 
 #define USER_NOT_FOUND 34
+
+#define ss_files 35
+#define ss_files_end 36

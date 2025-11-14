@@ -346,6 +346,17 @@ void* Handle_client(void* arg){
             print_info(hash,filename,new_socket);
         }
         else if (flag == DELETE) {
+            int own = is_owner(username_of_client,cmd_string,hash);
+            if(own == -1){
+                Packet pkt;
+                pkt.REQ_FLAG = Not_owner;
+                char send_buff[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt,send_buff);
+                uint32_t net_len = htonl(bytes_to_send);
+                send_all(new_socket,&net_len,sizeof(uint32_t));
+                send_all(new_socket,send_buff,bytes_to_send);
+                continue;
+            }
             printf("[NS] Forwarding DELETE to SS...\n");
 
             Packet forward_pkt;
@@ -389,7 +400,7 @@ void* Handle_client(void* arg){
             printf(GREEN "[NS] ACK sent successfully.\n" NORMAL);
 
             if (a == 0) {
-                if (delete_file(hash, cmd_string) == -1) {
+                if (delete_file(hash, cmd_string,&users) == -1) {
                     printf(RED "[NS] ERROR removing file from hashmap\n" NORMAL);
                 }
                 else{
@@ -758,6 +769,36 @@ void* Handle_storage_server(void* arg) {
             node_init(&node, ss_ip, client_port, ns_port);
             heap_push(minheap, node);
 
+            while(1){
+                if (recv_all(new_ss_socket, &net_packet_len, sizeof(uint32_t)) <= 0) {
+                    printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), ss_ip_str);
+                    break;
+                }
+
+                packet_len = ntohl(net_packet_len);
+                if (packet_len > BUFFER_SIZE) {
+                    printf(RED "[NS] ERROR: Storage Server packet too large (%u bytes)\n" NORMAL, packet_len);
+                    break;
+                }
+                if (recv_all(new_ss_socket, buffer, packet_len) <= 0) {
+                    printf("[Thread %ld] Storage Server %s disconnected.\n", pthread_self(), ss_ip_str);
+                    break;
+                }
+                Unpack(buffer, &flag, &cmd_string);
+                if(flag == ss_files_end)
+                    break;
+                char filename[MAX_FILE_NAME_SIZE];
+                strcpy(filename,cmd_string);
+                update_filename(filename,hash,client_port,ns_port);
+                for(int i=0;i<cache_size;i++){
+                    if(strcmp(cache[i].filename,filename)==0){
+                        cache[i].c_ss_port = client_port;
+                        cache[i].ns_ss_port = ns_port;
+                        printf("Updated cache\n");
+                    }
+                }
+            }
+            printf("All files updated\n");
             // Build ACK response packet
             Packet reply;
             memset(&reply, 0, sizeof(reply));

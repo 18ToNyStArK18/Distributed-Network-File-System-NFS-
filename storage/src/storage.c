@@ -132,7 +132,37 @@ int main() {
     send_all(ns_sock, buffer, bytes_to_send);
 
     printf("Sent registration to Name Server: %s\n", reg_msg);
-
+    
+    printf("Sending all the files to the name_server\n");
+    DIR *dir_stream;
+    struct dirent *dir_entry;
+    dir_stream = opendir("data");
+    if (dir_stream == NULL) {
+        perror("Could not open directory");
+        return 1;
+    }
+    while ((dir_entry = readdir(dir_stream)) != NULL) {
+        if (strcmp(dir_entry->d_name, ".") == 0 || strcmp(dir_entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (dir_entry->d_type == DT_REG) {
+            Packet pkt_f;
+            pkt_f.REQ_FLAG = ss_files;
+            strcpy(pkt_f.req_cmd,dir_entry->d_name);
+            bytes_to_send = Pack(&pkt_f,buffer);
+            len_net = htonl(bytes_to_send);
+            send_all(ns_sock , &len_net, sizeof(uint32_t));
+            send_all(ns_sock, buffer , bytes_to_send);
+            printf("%s\n", dir_entry->d_name);
+        }
+    }
+    closedir(dir_stream);
+    pkt.REQ_FLAG = ss_files_end;
+    bytes_to_send = Pack(&pkt,buffer);
+    len_net = htonl(bytes_to_send);
+    send_all(ns_sock , &len_net, sizeof(uint32_t));
+    send_all(ns_sock, buffer , bytes_to_send);
+    printf("All files sent Succesfully\n");
     uint32_t ack_len_net;
     if (recv_all(ns_sock, &ack_len_net, sizeof(ack_len_net)) <= 0) {
         printf(RED "Error receiving response length\n" NORMAL);
@@ -257,7 +287,7 @@ void* Client_listener_thread(void *arg) {
         args->client_socket = client_fd;
 
         printf("[SS] Client connected from %s:%d\n",
-               args->client_ip, ntohs(addr.sin_port));
+                args->client_ip, ntohs(addr.sin_port));
 
         pthread_t tid;
         pthread_create(&tid, NULL, Handle_Client, args);
@@ -285,7 +315,7 @@ void* Handle_NS (void* arg) {
 
         memset(buffer, 0, BUFFER_SIZE);
 
-       if(recv_all(ns_fd,buffer,packet_len)<=0){
+        if(recv_all(ns_fd,buffer,packet_len)<=0){
             printf("[Thread %ld] Name_server disconnected\n",pthread_self());
             break;
         }
@@ -295,14 +325,14 @@ void* Handle_NS (void* arg) {
         Unpack(buffer, &flag, &cmd_string);
 
         printf("[Thread %ld] Name Server %s Flag: %u, Cmd: %s\n", pthread_self(), NS_IP, flag, cmd_string);
-    
-        
+
+
         if (flag == CREATE_REQ) {
             printf("Received CREATE request\n");
 
             char filename[MAX_FILE_NAME_SIZE];
-            strcpy(filename, cmd_string);
 
+            sprintf(filename,"data/%s",cmd_string);
             pthread_mutex_lock(&FILES_C_AND_W);
 
             FILE *fp = fopen(filename, "r");
@@ -324,15 +354,15 @@ void* Handle_NS (void* arg) {
                     fclose(fp);
                 }
             }
-        
+
             pthread_mutex_unlock(&FILES_C_AND_W);
-        
+
             // Now send response to Name Server
             char temp_buffer[BUFFER_SIZE];
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = send_flag;
-        
+
             int bytes_to_send = Pack(&pkt, temp_buffer);
 
             uint32_t net_len = htonl(bytes_to_send);
@@ -343,15 +373,14 @@ void* Handle_NS (void* arg) {
             if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0 ) {
                 printf(RED "ERROR sending CREATE ack to NS\n" NORMAL);
             }
-        
+
             printf("[SS] CREATE for file '%s' -> %s\n", filename, send_flag == Success ? "Success" : (send_flag == FILE_ALREADY_EXISTS ? "Already Exists" : "Fail"));
         }
         else if (flag == DELETE) {
             printf("Received DELETE request\n");
 
             char filename[MAX_FILE_NAME_SIZE];
-            strcpy(filename, cmd_string);
-
+            sprintf(filename,"data/%s",cmd_string);
             pthread_mutex_lock(&FILES_C_AND_W);
 
             int send_flag;
@@ -361,13 +390,13 @@ void* Handle_NS (void* arg) {
             else {
                 send_flag = FILE_DOESNT_EXIST;
             }
-        
+
             pthread_mutex_unlock(&FILES_C_AND_W);
-        
+
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = send_flag;
-        
+
             char temp_buffer[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt, temp_buffer);
 
@@ -375,17 +404,17 @@ void* Handle_NS (void* arg) {
             if (send_all(ns_fd, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "[SS] ERROR: Failed to send DELETE length.\n" NORMAL);
             }
-        
+
             if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0) {
                 printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
             }
-        
+
             printf("[SS] DELETE request for '%s' -> %s\n", filename, send_flag == Success ? "Success" : "File Does Not Exist");
         }
         else if (flag == EXEC) {
             // send contents of file line by line
             char filename[MAX_FILE_NAME_SIZE];
-            strcpy(filename,cmd_string);
+            sprintf(filename,"data/%s",cmd_string);
             FILE *fp = fopen(filename,"r");
             char line_buffer[1000];
             Packet pkt;
@@ -450,10 +479,11 @@ void* Handle_Client (void* arg) {
         }
 
         uint32_t flag = (uint32_t)-1;
-        char* filename = NULL;
-        Unpack(body, &flag, &filename);
-
-        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, filename ? filename : "(null)");
+        char* file = NULL;
+        Unpack(body, &flag, &file);
+        char filename[MAX_FILE_NAME_SIZE];
+        sprintf(filename,"data/%s",file);
+        printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, strlen(filename) ? filename : "(null)");
 
         if (flag == READ_REQ_SS) {
             FILE* fp = fopen(filename, "r");
