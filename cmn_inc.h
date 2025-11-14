@@ -1,3 +1,6 @@
+#ifndef COMMON_INC
+#define COMMON_INC
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -104,3 +107,5 @@ int Pack(Packet* pkt , char * buff);
 
 #define ss_files 35
 #define ss_files_end 36
+
+#endif
