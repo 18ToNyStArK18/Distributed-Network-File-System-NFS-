@@ -269,11 +269,13 @@ void* Handle_client(void* arg){
 
             char forward_buff[BUFFER_SIZE];
             int forward_size = Pack(&forward_pkt, forward_buff);
+            if (minheap->size == 0) {
+                printf(RED "[NS] ERROR: No storage servers available to create file.\n" NORMAL);
+                continue; 
+            }
+            Node *send = &minheap->arr[0];
 
-            Node send;
-            heap_peek(minheap, &send);
-
-            int a = send_to_SS(forward_buff, send.ss_ip, send.ns_port, forward_size);
+            int a = send_to_SS(forward_buff, send->ss_ip, send->ns_port, forward_size);
 
             printf("[NS] Sending ACK back to client...\n");
 
@@ -295,11 +297,11 @@ void* Handle_client(void* arg){
             if (a == 0) {
                 if(add_file_to_user(filename,username_of_client,&users)==-1)
                         printf("ERROR\n");
-                if(add_file(hash, filename, ss_ip, client_port, username_of_client,ns_port) == -1){
+                if(add_file(hash, filename, send->ss_ip, send->client_port, username_of_client,send->ns_port) == -1){
                     printf(RED "[NS] ERROR storing file in hashmap\n" NORMAL);
                 } else {
                     print(hash);
-                    send.num_files++;
+                    send->num_files++;
                     heap_fix(minheap, 0);
                 }
             }
@@ -325,6 +327,7 @@ void* Handle_client(void* arg){
             char delete_ip[INET_ADDRSTRLEN];
             int delete_port;
             find_ip_by_filename(cmd_string, hash, delete_ip, &delete_port);
+            printf("ip : %s port : %d\n",delete_ip,delete_port);
 
             int a = send_to_SS(forward_buff, delete_ip, delete_port, forward_size);
 

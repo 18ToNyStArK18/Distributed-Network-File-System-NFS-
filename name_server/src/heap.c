@@ -1,6 +1,6 @@
 #include "../inc/heap.h"
 
-Node* node_init(Node* out, char *ss_ip, int client_port, int ns_port) {
+void node_init(Node* out, char *ss_ip, int client_port, int ns_port) {
     strcpy(out->ss_ip, ss_ip);
     out->client_port = client_port;
     out->ns_port = ns_port;

@@ -632,7 +632,7 @@ void* Handle_Client (void* arg) {
 
                 Unpack(content, &flag, &payload);
 
-                if(strcmp(payload, "ETIRW" == 0)) {
+                if(strcmp(payload, "ETIRW")==0) {
                     printf("End of WRITE session for file: %s", write_filename);
                     free(payload);
                     break;

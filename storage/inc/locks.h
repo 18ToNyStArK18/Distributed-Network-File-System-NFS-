@@ -1,6 +1,6 @@
 #include <pthread.h>
 #include <sys/types.h>
-#include "../cmn_inc.h"
+#include "../../cmn_inc.h"
 
 #define MAX_CONNS 20
 

@@ -444,7 +444,7 @@ void print(Hashmap *map){
     for(int i=0;i<size;i++){
         Hashnode *curr = map->buckets[i];
         while(curr != NULL){
-            printf("%s\n",curr->filename);
+            printf("%s ip: %s port(ns_SS): %d  port(client_ss): %d\n",curr->filename,curr->location.ip,curr->location.ns_ss_port,curr->location.ss_port);
             curr = curr->next;
         }
     }

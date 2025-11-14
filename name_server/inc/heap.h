@@ -1,4 +1,4 @@
-#include "../cmn_inc.h"
+#include "../../cmn_inc.h"
 
 #define INITIAL_CAP 20
 

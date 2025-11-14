@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <dirent.h>
-#include "../cmn_inc.h"
+#include "../../cmn_inc.h"
 
 #define BUFFER_SIZE 1024
 #define RED "\x1b[31m"
