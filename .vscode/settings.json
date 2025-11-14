@@ -3,6 +3,7 @@
     "files.associations": {
         "cerrno": "c",
         "ns.h": "c",
-        "socket.h": "c"
+        "socket.h": "c",
+        "locks.h": "c"
     }
 }
