@@ -398,6 +398,13 @@ int can_read(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
+            time_t current_time;
+            time(&current_time);
+            struct tm *local_time;
+            local_time = localtime(&current_time);
+            char time_string[100];
+            strftime(time_string, sizeof(time_string), "%Y-%m-%d %H:%M", local_time);
+            strcpy(current->time,time_string);
             rw_access *it = current->read;
             while(it != NULL){
                 if(strcmp(it->username,username)==0){
@@ -419,6 +426,13 @@ int can_write(Hashmap *map,char *filename,char *username){
 
     while (current != NULL) {
         if (strcmp(current->filename, filename) == 0) {
+            time_t current_time;
+            time(&current_time);
+            struct tm *local_time;
+            local_time = localtime(&current_time);
+            char time_string[100];
+            strftime(time_string, sizeof(time_string), "%Y-%m-%d %H:%M", local_time);
+            strcpy(current->time,time_string);
 
             rw_access *it = current->write;
             while(it != NULL){

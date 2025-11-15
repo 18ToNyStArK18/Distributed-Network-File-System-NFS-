@@ -84,3 +84,4 @@ void execute_file(char *filename,char *ip,int port,int client_socket);
 void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port);
 int is_file_present(char *filename,Hashmap *map);
 int update_filename(char *filename,Hashmap *map,int client_port,int ns_port);
+int hash_fucn(char *s);

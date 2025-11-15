@@ -1,5 +1,6 @@
 #include "../inc/client_funcs.h"
 #include "../../name_server/inc/ip.h"
+#include <stdint.h>
 //NOTE
 //while sending the username '\n' is also included idk how to remove it
 // define the macros for the communication in tcp
@@ -153,7 +154,7 @@ int main(){
     printf(GREEN "\nUsername successfully registered.\nReady for commands.\n" NORMAL);
 
     while(1){
-        printf("Enter the command : ");
+        printf(" %s> ",user_name);
         fgets(inp_cmd, max_inp-1, stdin);
         if(strcmp(inp_cmd,"quit\n")==0){
             printf(GREEN"Bye\n"NORMAL);
@@ -161,11 +162,12 @@ int main(){
         }
         command_str parsed;
         parsing(inp_cmd,&parsed);
+        if(parsed.n ==0)
+            continue;
         printf("\n--------Parsed command--------\n");
         print_parsed(&parsed);
         printf("--------------------------------\n");
         char command_type[MAX_WORD_SIZE];
-        assert(parsed.n != 0); // so that the inp_cmd has more than 0 words
         strcpy(command_type,parsed.cmd[0]);
 
         Packet pkt;
@@ -193,23 +195,23 @@ int main(){
                     printf(RED "Lost connection while receiving LIST\n" NORMAL);
                     break;
                 }
-            
+
                 uint32_t resp_len = ntohl(resp_len_net);
                 if (resp_len > BUFFER_SIZE) {
                     printf(RED "LIST packet too large\n" NORMAL);
                     break;
                 }
-            
+
                 char recv_buff[BUFFER_SIZE];
                 if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                     printf(RED "Error receiving LIST packet\n" NORMAL);
                     break;
                 }
-            
+
                 uint32_t flag;
                 char *cmd_string;
                 Unpack(recv_buff, &flag, &cmd_string);
-            
+
                 if (flag == LIST_DATA) {
                     printf("%s", cmd_string);  // PRINT USER LIST LINE
                 }
@@ -220,6 +222,62 @@ int main(){
                 else {
                     printf(RED "Unexpected flag %u in LIST response\n" NORMAL, flag);
                     break;
+                }
+            }
+        }
+        else if(strncmp(command_type,"REQ_ACCESS",10)==0){
+            if(parsed.cmd[1][1]=='R')
+                pkt.REQ_FLAG = REQ_ACCESS_R;
+            else
+                pkt.REQ_FLAG = REQ_ACCESS_W;
+            strcpy(pkt.req_cmd,parsed.cmd[2]);
+            int bytes_to_send = Pack(&pkt,buffer);
+            uint32_t net_len = htonl(bytes_to_send);
+            send_all(client_socket,&net_len,sizeof(uint32_t));
+            send_all(client_socket,buffer,bytes_to_send);
+            printf("Request Sent Successfully\n");            
+        }
+        else if(strncmp(command_type,"VIEW_REQS",9)==0){
+            pkt.REQ_FLAG = VIEW_REQS;
+            char send_buffer[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt,send_buffer);
+            int net_len = htonl(bytes_to_send);
+            send_all(client_socket,&net_len,sizeof(uint32_t));
+            send_all(client_socket,send_buffer,bytes_to_send);
+
+            char recv_buff[BUFFER_SIZE];
+            uint32_t flag;
+            char *cmd_str;
+            while(1){
+                uint32_t recv_net_len;
+                recv_all(client_socket,&recv_net_len,sizeof(uint32_t));
+                uint32_t recv_len = ntohl(recv_net_len);
+                recv_all(client_socket,recv_buff,recv_len);
+                Unpack(recv_buff,&flag,&cmd_str);
+                if(flag == VIEW_REQS_END)
+                    break;
+                else if(flag != VIEW_REQS_DATA){
+                    printf("Wrong flag %d\n",flag);
+                    break;
+                }
+                char owner[MAX_WORD_SIZE],perms,username[MAX_WORD_SIZE],filename[MAX_WORD_SIZE];
+                sscanf(cmd_str,"%s %c %s %s",owner,&perms,username,filename);
+                printf("User: %s is requesting %c access for the file %s Enter Y to grant N to deny\n",username,perms,filename); 
+                char Res[3];
+                fgets(Res,2,stdin);
+                if(Res[0]=='Y'){
+                    pkt.REQ_FLAG = Success;
+                    bytes_to_send = Pack(&pkt,send_buffer);
+                    net_len = htonl(bytes_to_send);
+                    send_all(client_socket,&net_len,sizeof(uint32_t));
+                    send_all(client_socket,send_buffer,bytes_to_send);
+                }
+                else{
+                    pkt.REQ_FLAG = Fail;
+                    bytes_to_send = Pack(&pkt,send_buffer);
+                    net_len = htonl(bytes_to_send);
+                    send_all(client_socket,&net_len,sizeof(uint32_t));
+                    send_all(client_socket,send_buffer,bytes_to_send);
                 }
             }
         }
@@ -238,8 +296,8 @@ int main(){
             else if(strcmp(view_type,"-la")==0 || strcmp(view_type,"-al")==0)
                 pkt.REQ_FLAG = VIEW_AL;
             else{
-               printf(RED"UNKNOWN FLAG\n"NORMAL);
-               continue;
+                printf(RED"UNKNOWN FLAG\n"NORMAL);
+                continue;
             }
             strcpy(pkt.req_cmd,inp_cmd);
             int payload_len = Pack(&pkt, buffer);
@@ -420,7 +478,7 @@ int main(){
             // Receive ACK response first
             uint32_t resp_len_net,flag=-1;
             char *cmd_str;
-          
+
             uint32_t resp_len = ntohl(resp_len_net);
             printf("\n--------INFO DATA--------\n");
 

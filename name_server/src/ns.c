@@ -13,6 +13,7 @@ Hashmap *hash;
 MinHeap *minheap;
 cache_node cache[cache_size];
 int cache_indx=0;
+char req_access_file_name[20] = "Req_access.txt";
 
 void* Client_listener_thread (void *arg);
 void* Storage_listener_thread (void *arg);
@@ -159,6 +160,91 @@ void* Handle_client(void* arg){
             if (send_all(new_socket, buffer, bytes_to_send) <= 0) {
                 printf(RED "[NS] ERROR: Failed to send USER_REG response.\n" NORMAL);
             }
+        }
+        else if(flag == REQ_ACCESS_R || flag == REQ_ACCESS_W){
+            char filename[MAX_FILE_NAME_SIZE];
+            strcpy(filename,cmd_string);
+            char owner[MAX_WORD_SIZE];
+            int has = hash_fucn(filename);
+            
+            int indx = abs(has) % hash->size;
+            Hashnode *current = hash->buckets[indx];
+            while(current){
+                if(strcmp(current->filename,filename)==0){
+                    strcpy(owner,current->Owner);
+                    break;
+                }
+            }
+            char str[1024];
+            if(flag == REQ_ACCESS_R){
+                sprintf(str,"%s r %s %s",owner,username_of_client,filename);
+            }
+            else {
+                sprintf(str,"%s w %s %s",owner,username_of_client,filename);
+            }
+            FILE *fp = fopen(req_access_file_name,"a");
+            fprintf(fp,"%s\n",str);
+            fclose(fp);
+        }
+        else if(flag == VIEW_REQS){
+            printf("Hello\n");
+            FILE *fp = fopen(req_access_file_name,"r");
+            char *filedata[10];
+            for(int i=0;i<10;i++)
+                filedata[i] = malloc(1024);
+            int file_idx=0;
+            if(!fp)
+                printf("Filedoesnt exist%s\n",req_access_file_name);
+            printf("hello");
+            while(fscanf(fp,"%[^\\n]",filedata[file_idx]) != EOF){
+                printf("%s\n",filedata[file_idx]);
+                file_idx++;
+            }
+            fclose(fp);
+            Packet pkt;
+            char send_buff[BUFFER_SIZE];
+            fp = fopen(req_access_file_name,"w");
+            for(int i=0;i<file_idx;i++){
+                char owner[MAX_WORD_SIZE];
+                char perms;
+                char username[MAX_WORD_SIZE];
+                char filename[MAX_FILE_NAME_SIZE];
+                sscanf(filedata[i],"%s %c %s %s",owner,&perms,username,filename);
+                if(strcmp(owner,username_of_client)==0){
+                    printf("CURRENT user is the owner\n");
+                    pkt.REQ_FLAG= VIEW_REQS_DATA;
+                    strcpy(pkt.req_cmd,filedata[i]);
+                    int bytes_to_send = Pack(&pkt,send_buff);
+                    uint32_t net_len = htonl(bytes_to_send);
+                    send_all(new_socket,&net_len,sizeof(uint32_t));
+                    send_all(new_socket,send_buff,bytes_to_send);
+
+                    uint32_t recv_net_len;
+                    char recv_buff[BUFFER_SIZE];
+                    recv_all(new_socket,&recv_net_len,sizeof(uint32_t));
+                    int recv_len = ntohl(recv_net_len);
+                    recv_all(new_socket,recv_buff,recv_len);
+
+                    uint32_t flag = -1;
+                    char *cmd_string;
+                    Unpack(recv_buff,&flag,&cmd_string);
+                    if(flag == Success){
+                        if(perms == 'r')
+                            add_r_access(hash,filename,username);
+                        else
+                            add_w_access(hash,filename,username);
+                        add_file_to_user(filename,username,&users);
+                    }
+                }
+                else{
+                    fprintf(fp,"%s\n",filedata[i]);
+                }
+            }
+            pkt.REQ_FLAG = VIEW_REQS_END;
+            int bytes_to_send = Pack(&pkt,buffer);
+            uint32_t net_len = htonl(bytes_to_send);
+            send_all(new_socket,&net_len,sizeof(uint32_t));
+            send_all(new_socket,buffer,bytes_to_send);
         }
         else if(flag == VIEW_N){
             print_view(username_of_client,&users,hash,0,0,new_socket);    
@@ -560,6 +646,8 @@ void* Handle_client(void* arg){
 int main() {
     hash = create_hashmap(1024);
     minheap = heap_init();
+    FILE *rq_fp = fopen(req_access_file_name,"w");
+    fclose(rq_fp);
     if (!minheap) {
         perror("heap init failed.");
     }

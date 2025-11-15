@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <arpa/inet.h>
 #include <dirent.h>
+#include <time.h>
 
 #define MAX_WORDS_IN_INP 30 
 #define MAX_WORD_SIZE 1024
@@ -108,4 +109,9 @@ int Pack(Packet* pkt , char * buff);
 #define ss_files 35
 #define ss_files_end 36
 
+#define REQ_ACCESS_R 37
+#define REQ_ACCESS_W 38
+#define VIEW_REQS 39
+#define VIEW_REQS_DATA 40
+#define VIEW_REQS_END 41
 #endif
