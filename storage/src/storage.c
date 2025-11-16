@@ -19,6 +19,11 @@ void Unpack(char* buffer, uint32_t* flag, char** cmd_string);
 
 pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
 
+// ========= GLOBAL FILE MODEL TABLE =========
+FileModel *global_models[MAX_FILES];   // array of pointers
+int global_model_count = 0;            // how many file models currently loaded
+pthread_mutex_t global_models_lock = PTHREAD_MUTEX_INITIALIZER;
+
 int main() {
     int server_fd, client_fd;
     struct sockaddr_in ns_addr, client_addr;
@@ -642,8 +647,11 @@ void* Handle_Client (void* arg) {
             // write file
             char write_filename[MAX_FILE_NAME_SIZE];
             int sentence_idx;
+            SentenceChanges changes[1000];
+            int changes_indx = 0;
             sscanf(filename, "%s %d", write_filename, &sentence_idx); // because first line of WRITE is file + sentence idx
             printf("[Thread %ld] Writiing to file: %s, sentence: %d\n", pthread_self(), write_filename, sentence_idx);
+
             char content[BUFFER_SIZE];
             uint32_t net_len;
 
@@ -671,7 +679,68 @@ void* Handle_Client (void* arg) {
                 int word_index;
                 char words[BUFFER_SIZE];
                 sscanf(payload, "%d %[^\n]", &word_index, words);
+                changes[changes_indx].index = word_index;
+                strcpy(changes[changes_indx++].words,words);
+                // save all of this in an array of structs so that it can be used to change the sentence later
             }
+
+            FileModel *fm = get_or_create_file_model(write_filename);
+            if (!fm) {
+                printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
+                continue;
+            }
+
+            pthread_mutex_lock(&fm->list_lock);
+
+            SentenceNode *target = fm->head, *prev = NULL;
+            int idx = 0;
+
+            while (target && idx < sentence_idx) {
+                prev = target;
+                target = target->next;
+                idx++;
+            }
+
+            if (!target) {
+                if (idx == sentence_idx) {
+                    // appending a new sentence
+                    SentenceNode *append = calloc(1, sizeof(SentenceNode));
+                    append->text = NULL;
+                    pthread_rwlock_init(&append->lock, NULL);
+                    append->next = NULL;
+                    if (prev) {
+                        prev->next = append;
+                    }
+                    else {
+                        fm->head = append;
+                    }
+                    target = append;
+                }
+                else {
+                    printf("Sentence index out of range\n");
+                    continue;
+                }
+            }
+            //no need to lock i feel
+            pthread_mutex_unlock(&fm->list_lock);
+
+            WriteSession *ws = start_write(fm, sentence_idx);
+            if (!ws) {
+                printf(RED "[SS] ERROR: Failed to start write session\n" NORMAL);
+                continue;
+            }
+
+            pthread_rwlock_wrlock(&target->lock);
+
+            // actually make the changes to the sentence
+            for(int i=0;i<changes_indx;i++){
+                // change one by one 
+                //func(sentence,word,wordindx) --> iterate until that word indx and update that sentence and check for the delimters and change the sentences linked list
+                update_sentence(target, changes[i].words, changes[i].index);
+            }
+
+            pthread_rwlock_unlock(&target->lock);
+            //end write to update the number of writer on this file
         }
         else if (flag == STREAM) {
             // send contents of file line by line

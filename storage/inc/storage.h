@@ -18,20 +18,33 @@ typedef struct{
     char client_ip[INET_ADDRSTRLEN];
 } client_args_t;
 
-#define MAX_OPERATIONS 4096
+#define MAX_FILES 128
+
+typedef struct SentenceNode {
+    char *text;
+    pthread_rwlock_t lock;
+    struct SentenceNode *next;    
+} SentenceNode;
 
 typedef struct {
     char filename[MAX_FILE_NAME_SIZE];
-    int sentence_index;
-    char new_sentence[BUFFER_SIZE];
-    int version;
-    char username[USERNAME_SIZE];
-} WriteOp;
+    SentenceNode *head;
+    int writer_count;
+    pthread_mutex_t list_lock, writer_count_lock;
+} FileModel;
 
 typedef struct {
-    char filename[MAX_FILE_NAME_SIZE];
-    WriteOp ops[MAX_OPERATIONS];   
-    int op_count;                  
-    uint64_t next_version;         
-    pthread_mutex_t lock;          
-} OpLog;
+    char *sentence_text;   // local working copy
+    int sentence_index;    // where to apply changes
+    bool delimiter_added;
+} WriteSession;
+
+typedef struct {
+    int index;
+    char words[BUFFER_SIZE];
+} SentenceChanges;
+
+FileModel* get_or_create_file_model(const char *filename);
+WriteSession* start_write(FileModel* fm, int sentence_index);
+void end_write(FileModel *fm, WriteSession *ws);
+int update_sentence(SentenceNode *node, char *words, int word_index);
