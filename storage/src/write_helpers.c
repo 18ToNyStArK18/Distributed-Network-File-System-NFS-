@@ -126,148 +126,165 @@ void end_write(FileModel *fm, WriteSession *ws) {
 int update_sentence(SentenceNode *node, char *words, int word_index) {
     char *sentence = node->text;
     int word_count = 0, len = 0, delimeter_count = 0, insert = -1, words_len = strlen(words);
+    
     if(sentence)
         len = strlen(sentence);
+    else
+        insert = 0;
+
     for (int i = 0 ; i < len ; i++) {
         if (sentence[i] == ' ') word_count++;
 
         if (word_count == word_index) insert = i + 1;
     }
+
     for (int i = 0 ; i < words_len ; i++) {
         if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') delimeter_count++;
     }
+
     if (insert == -1) {
         return -1;
     }
+
     printf("dl:%d,wc%d,i%d\n",delimeter_count,word_count,insert);
-    if (delimeter_count == 0) {
-        char *newbuf = malloc(len + strlen(words) + 1);
-        memcpy(newbuf, sentence, insert);
-        strcat(newbuf + insert, words);
-        strcat(newbuf + insert + strlen(words), sentence + insert);
 
-        free(node->text);
-        node->text = newbuf;
-        printf("%s\n",node->text);
-    }
+    if (sentence) {
+        if (delimeter_count == 0) {
+            char *newbuf = malloc(len + strlen(words) + 2);
+            memcpy(newbuf, sentence, insert);
+            newbuf[insert] = ' ';
+            strcat(newbuf + insert + 1, words);
+            strcat(newbuf + insert + 1 + strlen(words), sentence + insert);
 
-    else if (delimeter_count > 0) {
-        bool first_time = true;       
-        int prev_idx = 0;
-        SentenceNode* cur = node, *prev = NULL;
-        for (int i = 0 ; i < words_len ; i++) {
-            if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
-                if (first_time) {
-                    char *newbuf = malloc(insert + i + 2);
-                    memcpy(newbuf, sentence, insert);
-                    memcpy(newbuf + insert, words, i + 1);
-                    newbuf[insert + i + 1] = '\0';
+            free(node->text);
+            node->text = newbuf;
+            printf("%s\n",node->text);
+        }
 
-                    free(cur->text);
-                    cur->text = newbuf;
-                    
-                    first_time = false;
-                    prev_idx = i+1;
+        else if (delimeter_count > 0) {
+            bool first_time = true;       
+            int prev_idx = 0;
+            SentenceNode* cur = node, *prev = NULL;
+            for (int i = 0 ; i < words_len ; i++) {
+                if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
+                    if (first_time) {
+                        char *newbuf = malloc(insert + i + 2);
+                        memcpy(newbuf, sentence, insert);
+                        memcpy(newbuf + insert, words, i + 1);
+                        newbuf[insert + i + 1] = '\0';
 
-                    prev = cur;
-                    cur = cur->next;
-                }
-                else {
-                    if (cur) {
-                        SentenceNode *after = cur->next;
-                        
-                        SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
-                        pthread_rwlock_init(&new_node->lock, NULL);
-                        new_node->next = after;
-                        
-                        cur->next = new_node;
-                        char* newbuf = malloc(i - prev_idx + 1); 
-                        memcpy(newbuf, words + prev_idx + 1, i - prev_idx + 2);
-                        // no need to concatenate anything as it is a whole sentence in itself
-                        
-                        prev_idx = i+1;
-                        
                         free(cur->text);
                         cur->text = newbuf;
+
+                        first_time = false;
+                        prev_idx = i+1;
+
                         prev = cur;
                         cur = cur->next;
                     }
                     else {
+                        if (cur) {
+                            SentenceNode *after = cur->next;
+
+                            SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                            pthread_rwlock_init(&new_node->lock, NULL);
+                            new_node->next = after;
+
+                            cur->next = new_node;
+                            char* newbuf = malloc(i - prev_idx + 2); 
+                            memcpy(newbuf, words + prev_idx, i - prev_idx + 1);
+                            newbuf[i - prev_idx + 1] = '\0';
+                            // no need to concatenate anything as it is a whole sentence in itself
+
+                            prev_idx = i+1;
+
+                            free(cur->text);
+                            cur->text = newbuf;
+                            prev = cur;
+                            cur = cur->next;
+                        }
+                        else {
+                            SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                            pthread_rwlock_init(&new_node->lock, NULL);
+                            new_node->next = NULL;
+
+                            char* newbuf = malloc(i - prev_idx + 2); 
+                            memcpy(newbuf, words + prev_idx, i - prev_idx + 1);
+                            newbuf[i - prev_idx + 1] = '\0';
+                            // no need to concatenate anything as it is a whole sentence in itself
+
+                            new_node->text = newbuf;
+                            prev_idx = i+1;
+                            prev->next = new_node;
+                            prev = new_node;
+                            cur = new_node->next;
+                        }
+                    }
+                }
+            }
+
+            if (prev_idx < words_len) {
+                // no delimiter at the end of words, need to merge it with the remainder of the original sentence
+                int tail_len = words_len - prev_idx;
+                int rest_len = strlen(sentence + insert);
+
+                char *merged = malloc(tail_len + rest_len + 1);
+                memcpy(merged, words + prev_idx, tail_len);
+                memcpy(merged + tail_len, sentence + insert, rest_len + 1);
+
+                if (cur) {
+                    SentenceNode *after = cur->next;
+                    SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                    pthread_rwlock_init(&new_node->lock, NULL);
+                    new_node->text = merged;
+                    new_node->next = after;
+                    cur->next = new_node;
+                }
+                else {
+                    SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                    pthread_rwlock_init(&new_node->lock, NULL);
+                    new_node->text = merged;
+                    new_node->next = NULL;
+                    prev->next = new_node;
+                }
+
+            }
+            else {
+                if (cur) {
+                    SentenceNode* after = cur->next;
+
+                    if (*(sentence + insert) != '\0') {
+                        int rest_len = strlen(sentence + insert);
+                        char *rest = malloc(rest_len + 1);
+                        memcpy(rest, sentence + insert, rest_len + 1);
+
                         SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                         pthread_rwlock_init(&new_node->lock, NULL);
+                        new_node->text = rest;
+                        new_node->next = after;
+                        cur->next = new_node;
+                    }
+                }
+
+                else {
+                    if (*(sentence + insert) != '\0') {
+                        int rest_len = strlen(sentence + insert);
+                        char *rest = malloc(rest_len + 1);
+                        memcpy(rest, sentence + insert, rest_len + 1);
+
+                        SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                        pthread_rwlock_init(&new_node->lock, NULL);
+                        new_node->text = rest;
                         new_node->next = NULL;
-                        
-                        char* newbuf = malloc(i - prev_idx + 1); 
-                        memcpy(newbuf, words + prev_idx + 1, i - prev_idx + 2);
-                        // no need to concatenate anything as it is a whole sentence in itself
-                        
-                        new_node->text = newbuf;
-                        prev_idx = i+1;
                         prev->next = new_node;
-                        prev = new_node;
-                        cur = new_node->next;
                     }
                 }
             }
         }
+    }
 
-        if (prev_idx < words_len) {
-            // no delimiter at the end of words, need to merge it with the remainder of the original sentence
-            int tail_len = words_len - prev_idx;
-            int rest_len = strlen(sentence + insert);
-
-            char *merged = malloc(tail_len + rest_len + 1);
-            memcpy(merged, words + prev_idx, tail_len);
-            memcpy(merged + tail_len, sentence + insert, rest_len + 1);
-
-            if (cur) {
-                SentenceNode *after = cur->next;
-                SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
-                pthread_rwlock_init(&new_node->lock, NULL);
-                new_node->text = merged;
-                new_node->next = after;
-                cur->next = new_node;
-            }
-            else {
-                SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
-                pthread_rwlock_init(&new_node->lock, NULL);
-                new_node->text = merged;
-                new_node->next = NULL;
-                prev->next = new_node;
-            }
-
-        }
-        else {
-            if (cur) {
-                SentenceNode* after = cur->next;
-
-                if (*(sentence + insert) != '\0') {
-                    int rest_len = strlen(sentence + insert);
-                    char *rest = malloc(rest_len + 1);
-                    memcpy(rest, sentence + insert, rest_len + 1);
-
-                    SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
-                    pthread_rwlock_init(&new_node->lock, NULL);
-                    new_node->text = rest;
-                    new_node->next = after;
-                    cur->next = new_node;
-                }
-            }
-
-            else {
-                if (*(sentence + insert) != '\0') {
-                    int rest_len = strlen(sentence + insert);
-                    char *rest = malloc(rest_len + 1);
-                    memcpy(rest, sentence + insert, rest_len + 1);
-
-                    SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
-                    pthread_rwlock_init(&new_node->lock, NULL);
-                    new_node->text = rest;
-                    new_node->next = NULL;
-                    prev->next = new_node;
-                }
-            }
-        }
+    else {
+        // TO DO: inserting a sentence for the first time
     }
 
     return 0;
