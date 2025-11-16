@@ -24,6 +24,7 @@ FileModel* get_or_create_file_model(const char *filename) {
     // TO ADD: load the original file content into LL (can add in WRITE also, let's see)
     FILE *fp = fopen(filename, "r");
     if (fp) {
+        printf("file opened\n");
         SentenceNode *tail = NULL;
         char *sentence = NULL;
         size_t sent_cap = 0, sent_len =0;
@@ -84,7 +85,8 @@ int save_to_disk(FileModel *fm) {
     }
     SentenceNode *cur = fm->head;
     while (cur) {
-        fprintf(fp, "%s", cur->text);
+        if(cur->text) 
+            fprintf(fp, "%s", cur->text);
         cur = cur->next;
     }
     fclose(fp);
@@ -116,7 +118,6 @@ void end_write(FileModel *fm, WriteSession *ws) {
     fm->writer_count--;
     int writers_left = fm->writer_count;
     pthread_mutex_unlock(&fm->writer_count_lock);
-
     if (writers_left == 0) {
         save_to_disk(fm);
     }
@@ -124,21 +125,21 @@ void end_write(FileModel *fm, WriteSession *ws) {
 
 int update_sentence(SentenceNode *node, char *words, int word_index) {
     char *sentence = node->text;
-    int word_count = 0, len = strlen(sentence), delimeter_count = 0, insert = -1, words_len = strlen(words);
+    int word_count = 0, len = 0, delimeter_count = 0, insert = -1, words_len = strlen(words);
+    if(sentence)
+        len = strlen(sentence);
     for (int i = 0 ; i < len ; i++) {
         if (sentence[i] == ' ') word_count++;
 
         if (word_count == word_index) insert = i + 1;
     }
-
     for (int i = 0 ; i < words_len ; i++) {
         if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') delimeter_count++;
     }
-
     if (insert == -1) {
         return -1;
     }
-
+    printf("dl:%d,wc%d,i%d\n",delimeter_count,word_count,insert);
     if (delimeter_count == 0) {
         char *newbuf = malloc(len + strlen(words) + 1);
         memcpy(newbuf, sentence, insert);
@@ -147,6 +148,7 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
         free(node->text);
         node->text = newbuf;
+        printf("%s\n",node->text);
     }
 
     else if (delimeter_count > 0) {

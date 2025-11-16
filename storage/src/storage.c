@@ -686,10 +686,12 @@ void* Handle_Client (void* arg) {
                 printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
                 continue;
             }
+            printf("Hello\n");
 
             pthread_mutex_lock(&fm->list_lock);
 
             SentenceNode *target = fm->head, *prev = NULL;
+            printf("%s\n",target->text);
             int idx = 0;
 
             while (target && idx < sentence_idx) {
@@ -728,7 +730,6 @@ void* Handle_Client (void* arg) {
             }
 
             pthread_rwlock_wrlock(&target->lock);
-
             // actually make the changes to the sentence
             for(int i=0;i<changes_indx;i++){
                 // change one by one 
