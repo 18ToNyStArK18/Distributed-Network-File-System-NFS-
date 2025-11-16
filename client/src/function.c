@@ -78,11 +78,11 @@ int client_ss_write(char *ip , int port , char *filename,int line_idx){
     uint32_t flag2;
     char *cmd_str;
     Unpack(buffer,&flag2,&cmd_str);
-    if(flag == Success){
+    if(flag2 == Success){
         printf("Write executed Successfully\n");
         return 1;
     }
-    printf("Write executed Unsuccessfully\n");
+    printf("Write executed Unsuccessfully %d\n",flag2);
     return -1;
 }
 int client_ss_stream(char *buffer,char *ip , int port,int size){

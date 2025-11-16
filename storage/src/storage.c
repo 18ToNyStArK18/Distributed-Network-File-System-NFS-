@@ -653,7 +653,6 @@ void* Handle_Client (void* arg) {
             printf("[Thread %ld] Writiing to file: %s, sentence: %d\n", pthread_self(), write_filename, sentence_idx);
 
             char content[BUFFER_SIZE];
-            uint32_t net_len;
 
             while (1) { 
                 if (recv_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
@@ -661,7 +660,7 @@ void* Handle_Client (void* arg) {
                 }
 
                 uint32_t content_len = ntohl(net_len);
-                if (recv_all(new_socket, content, sizeof(content_len)) <= 0) {
+                if (recv_all(new_socket, content,content_len) <= 0) {
                     printf(RED "ERROR: Failed to read WRITE content.\n" NORMAL);
                 }
 
@@ -669,10 +668,8 @@ void* Handle_Client (void* arg) {
                 char* payload = NULL;
 
                 Unpack(content, &flag, &payload);
-
-                if(strcmp(payload, "ETIRW\n")==0) {
+                if(strncmp(payload, "ETIRW",5)==0) {
                     printf("End of WRITE session for file: %s", write_filename);
-                    free(payload);
                     break;
                 }
 
