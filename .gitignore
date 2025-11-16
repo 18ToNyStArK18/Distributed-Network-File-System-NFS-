@@ -17,9 +17,9 @@
 */dist/
 
 # Ignore any file with no extension inside subfolders (common for compiled output)
-**/NS
-**/client
-**/storage
+name_server/NS
+client/client
+storage/storage
 
 # Debug files
 *.gch
