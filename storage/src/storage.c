@@ -670,7 +670,7 @@ void* Handle_Client (void* arg) {
 
                 Unpack(content, &flag, &payload);
 
-                if(strcmp(payload, "ETIRW")==0) {
+                if(strcmp(payload, "ETIRW\n")==0) {
                     printf("End of WRITE session for file: %s", write_filename);
                     free(payload);
                     break;
@@ -740,6 +740,14 @@ void* Handle_Client (void* arg) {
             }
 
             pthread_rwlock_unlock(&target->lock);
+            end_write(fm,ws);
+            Packet send_pkt;
+            send_pkt.REQ_FLAG = Success;
+            char send_buffer[BUFFER_SIZE];
+            int bytes_to_send = Pack(&send_pkt,send_buffer);
+            uint32_t net_len2 = htonl(bytes_to_send);
+            send_all(new_socket,&net_len2,sizeof(uint32_t));
+            send_all(new_socket,send_buffer,bytes_to_send);
             //end write to update the number of writer on this file
         }
         else if (flag == STREAM) {

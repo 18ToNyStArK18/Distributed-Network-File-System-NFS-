@@ -793,18 +793,18 @@ int main(){
         }
         else if(strncmp(command_type,"WRITE",5)==0){
             printf("[%s] Requested WRITE Filename: %s\n", user_name, parsed.cmd[1]);
-
+            int line_indx;
+            sscanf(parsed.cmd[2],"%d",&line_indx);
             pkt.REQ_FLAG = WRITE_REQ;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
             int payload_len = Pack(&pkt, buffer);
 
-            // ---- SEND packet length + packet ----
             uint32_t len_net = htonl(payload_len);
             send_all(client_socket, &len_net, sizeof(len_net));
             send_all(client_socket, buffer, payload_len);
 
             printf(GREEN"Packet sent Successfully\n"NORMAL); 
 
-            // ---- RECEIVE response length ----
             uint32_t resp_len_net;
             if (recv_all(client_socket, &resp_len_net, sizeof(resp_len_net)) <= 0) {
                 printf(RED"Error receiving WRITE response length\n"NORMAL);
@@ -824,11 +824,23 @@ int main(){
             uint32_t flag = -1;
             char *cmd_string;
             Unpack(recv_buff, &flag, &cmd_string);
+            char ip[20];
+            int port;
+            if(flag == FILE_DOESNT_EXIST){
+                printf("File with name %s Doesnt exist\n",parsed.cmd[1]);
+                continue;
+            }
+            else if(flag == NO_access){
+                printf("Nice try but you dont have the access to write to the file\n");
+                continue;
+            }
+            else if(flag == SS_IP_PORT){
 
-            if(flag == Success)
-                printf(GREEN"WRITE command acknowledged by NS\n"NORMAL);
-            else
-                printf(RED"WRITE command failed\n"NORMAL);
+                sscanf(cmd_string,"%s %d",ip,&port);
+                printf("Found the file locaion %s:%d\n",ip,port);
+            }
+            int a = client_ss_write(ip,port,parsed.cmd[1],line_indx);             
+
         }
         else{
             printf(RED"Unknown Command : %s\n"NORMAL,inp_cmd);
