@@ -1,5 +1,4 @@
 #include "../inc/storage.h"
-#include "../inc/locks.h"
 
 FileModel* get_or_create_file_model(const char *filename) {
     extern FileModel *global_models[];
