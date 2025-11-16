@@ -633,10 +633,68 @@ void* Handle_client(void* arg){
         }
         else if(flag == WRITE_REQ){
             // need to send the ip and the port of the ss to the client
-            strcpy(msg,"ACK for the WRITE_REQ");
+            Packet pkt;
+            memset(&pkt, 0, sizeof(pkt));   
 
+            if (hash == NULL) {
+                pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                printf("Hashmap not initialized!\n");
+            }
+            else {
+                filelocation loc;
+                loc.ns_ss_port = -1;
+                char filename[MAX_FILE_NAME_SIZE];
+                strcpy(filename, cmd_string);
+                int flag = 0;
+                print_details(filename, hash);
+                for(int i=0;i<cache_size;i++){
+                    if(strcmp(filename, cache[i].filename)==0){
+                        flag = 1;
+                        loc.ns_ss_port = cache[i].ns_ss_port;
+                        loc.ss_port = cache[i].c_ss_port;
+                        strcpy(loc.ip,cache[i].ip);
+                        printf("Cache Hit\n");
+                    }
+                }
+
+                if (loc.ns_ss_port != -1 || get_file_location(hash, filename, &loc)) {
+                    if(flag == 0){
+                        printf("Cache miss\n");
+                        int temp_idx = cache_indx % cache_size;
+                        cache[temp_idx].c_ss_port = loc.ss_port;
+                        cache[temp_idx].ns_ss_port = loc.ns_ss_port;
+                        strcpy(cache[temp_idx].ip,loc.ip);
+                        strcpy(cache[temp_idx].filename,filename);
+                        cache_indx++;
+                    }
+                    if (can_write(hash, filename, username_of_client) == -1) {
+                        pkt.REQ_FLAG = NO_access;
+                        printf("NO ACCESS\n");
+                    }
+                    else {
+                        pkt.REQ_FLAG = SS_IP_PORT;
+                        snprintf(pkt.req_cmd, sizeof(pkt.req_cmd), "%s %d", loc.ip, loc.ss_port);
+                    }
+                } 
+                else {
+                    printf("NO FILE\n");
+                    pkt.REQ_FLAG = FILE_DOESNT_EXIST;
+                }
+            }
+
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt, send_buff);
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send WRITE length.\n" NORMAL);
+            }
+
+            if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
+                printf(RED "[NS] ERROR sending SS_IP_PORT response\n" NORMAL);
+            } else {
+                printf(GREEN "[NS] Sent SS IP + Port info successfully\n" NORMAL);
+            }
         }
-
     }
 
     close(new_socket);
