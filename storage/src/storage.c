@@ -688,10 +688,8 @@ void* Handle_Client (void* arg) {
             }
             printf("Hello\n");
 
-            pthread_mutex_lock(&fm->list_lock);
 
             SentenceNode *target = fm->head, *prev = NULL;
-            printf("%s\n",target->text);
             int idx = 0;
 
             while (target && idx < sentence_idx) {
@@ -721,7 +719,6 @@ void* Handle_Client (void* arg) {
                 }
             }
             //no need to lock i feel
-            pthread_mutex_unlock(&fm->list_lock);
 
             WriteSession *ws = start_write(fm, sentence_idx);
             if (!ws) {
@@ -747,7 +744,7 @@ void* Handle_Client (void* arg) {
             send_all(new_socket,&net_len2,sizeof(uint32_t));
             send_all(new_socket,send_buffer,bytes_to_send);
             //end write to update the number of writer on this file
-            end_write(fm, ws);
+            printf("update\n");
         }
         else if (flag == STREAM) {
             // send contents of file line by line

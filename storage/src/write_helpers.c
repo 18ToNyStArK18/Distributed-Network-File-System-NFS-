@@ -77,19 +77,25 @@ FileModel* get_or_create_file_model(const char *filename) {
 
 int save_to_disk(FileModel *fm) {
     if (!fm) return -1;
+    printf("a\n");
     pthread_mutex_lock(&fm->list_lock); // optional acc to gpt, have to check
+    printf("b\n");
     FILE* fp = fopen(fm->filename, "w");
+    printf("c\n");
     if (!fp) {
         pthread_mutex_unlock(&fm->list_lock);
+        printf("d\n");
         return -1;
     }
     SentenceNode *cur = fm->head;
     while (cur) {
+        printf("e\n");
         if(cur->text) 
             fprintf(fp, "%s", cur->text);
         cur = cur->next;
     }
     fclose(fp);
+    printf("f\n");
     pthread_mutex_unlock(&fm->list_lock);
     return 0;
 }
@@ -124,6 +130,7 @@ void end_write(FileModel *fm, WriteSession *ws) {
 }
 
 int update_sentence(SentenceNode *node, char *words, int word_index) {
+    word_index--;
     char *sentence = node->text;
     int word_count = 0, len = 0, delimeter_count = 0, insert = -1, words_len = strlen(words);
     
@@ -133,9 +140,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         insert = 0;
 
     for (int i = 0 ; i < len ; i++) {
-        if (sentence[i] == ' ') word_count++;
-
         if (word_count == word_index) insert = i + 1;
+        if (sentence && sentence[i] == ' ') word_count++;
     }
 
     for (int i = 0 ; i < words_len ; i++) {
@@ -291,11 +297,11 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         for (int i = 0 ; i < words_len ; i++) {
             if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
                 if (first_time) {
+                    printf("This reached\n");
                     char *newbuf = malloc(insert + i + 2); // insert = 0 over here
-                    // memcpy(newbuf, sentence, insert);
+                                                           // memcpy(newbuf, sentence, insert);
                     memcpy(newbuf + insert, words, i + 1);
                     newbuf[insert + i + 1] = '\0';
-                    free(cur->text);
                     cur->text = newbuf;
                     first_time = false;
                     prev_idx = i+1;
@@ -303,6 +309,7 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                     cur = cur->next;
                 }
                 else {
+                    printf("How the fuck this reached\n");
                     SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                     pthread_rwlock_init(&new_node->lock, NULL);
                     new_node->next = NULL;
@@ -371,7 +378,7 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 //             char *chunk = malloc(len + 1);
 //            memcpy(chunk, start, len);
 //            chunk[len] = '\0';
-           
+
 //            SentenceNode *node = calloc(1, sizeof(SentenceNode));
 //            node->text = chunk;
 //            pthread_rwlock_init(&node->lock, NULL);
