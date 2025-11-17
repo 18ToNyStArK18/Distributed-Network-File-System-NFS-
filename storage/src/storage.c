@@ -747,6 +747,7 @@ void* Handle_Client (void* arg) {
             send_all(new_socket,&net_len2,sizeof(uint32_t));
             send_all(new_socket,send_buffer,bytes_to_send);
             //end write to update the number of writer on this file
+            end_write(fm, ws);
         }
         else if (flag == STREAM) {
             // send contents of file line by line

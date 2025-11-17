@@ -285,6 +285,39 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
     else {
         // TO DO: inserting a sentence for the first time
+        bool first_time = true;       
+        int prev_idx = 0;
+        SentenceNode* cur = node, *prev = NULL;
+        for (int i = 0 ; i < words_len ; i++) {
+            if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
+                if (first_time) {
+                    char *newbuf = malloc(insert + i + 2); // insert = 0 over here
+                    // memcpy(newbuf, sentence, insert);
+                    memcpy(newbuf + insert, words, i + 1);
+                    newbuf[insert + i + 1] = '\0';
+                    free(cur->text);
+                    cur->text = newbuf;
+                    first_time = false;
+                    prev_idx = i+1;
+                    prev = cur;
+                    cur = cur->next;
+                }
+                else {
+                    SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
+                    pthread_rwlock_init(&new_node->lock, NULL);
+                    new_node->next = NULL;
+                    char* newbuf = malloc(i - prev_idx + 2); 
+                    memcpy(newbuf, words + prev_idx, i - prev_idx + 1);
+                    newbuf[i - prev_idx + 1] = '\0';
+                    // no need to concatenate anything as it is a whole sentence in itself
+                    new_node->text = newbuf;
+                    prev_idx = i+1;
+                    prev->next = new_node;
+                    prev = new_node;
+                    cur = new_node->next;
+                }
+            }
+        }
     }
 
     return 0;
