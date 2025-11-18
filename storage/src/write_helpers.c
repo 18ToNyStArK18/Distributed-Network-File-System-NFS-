@@ -140,8 +140,10 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
     for (int i = 0 ; i < len ; i++) {
         if (word_count == word_index && insert == -1) insert = i;
-        if (sentence && sentence[i] == ' ') word_count++;
+        if (sentence && (sentence[i] == ' ' || sentence[i] == '.' || sentence[i] == '?' || sentence[i] == '!')) word_count++;
     }
+
+    if (word_count == word_index && insert == -1) insert = len-1;
 
     if (word_index == 0)
         insert = 0;
@@ -160,7 +162,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         if (delimeter_count == 0) {
             char *newbuf = malloc(len + words_len + 2);
             memcpy(newbuf, sentence, insert);
-            // newbuf[insert] = ' ';
+            if (insert == len - 1)
+                newbuf[insert] = ' ';
             strcat(newbuf, words);
             strcat(newbuf, sentence + insert);
             newbuf[len + words_len] = '\0';
@@ -174,7 +177,7 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
             int prev_idx = 0;
             SentenceNode* cur = node, *prev = NULL;
             for (int i = 0 ; i < words_len ; i++) {
-                if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
+                if (words[i] == '.' || words[i] == '?' || words[i] == '!') {
                     if (first_time) {
                         char *newbuf = malloc(insert + i + 2);
                         memcpy(newbuf, sentence, insert);
@@ -192,13 +195,12 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                     }
                     else {
                         if (cur) {
-                            SentenceNode *after = cur->next;
-
                             SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                             pthread_rwlock_init(&new_node->lock, NULL);
-                            new_node->next = after;
+                            
+                            new_node->next = cur;
+                            prev->next = new_node;
 
-                            cur->next = new_node;
                             char* newbuf = malloc(i - prev_idx + 2); 
                             memcpy(newbuf, words + prev_idx, i - prev_idx + 1);
                             newbuf[i - prev_idx + 1] = '\0';
@@ -241,12 +243,11 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                 memcpy(merged + tail_len, sentence + insert, rest_len + 1);
 
                 if (cur) {
-                    SentenceNode *after = cur->next;
                     SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                     pthread_rwlock_init(&new_node->lock, NULL);
                     new_node->text = merged;
-                    new_node->next = after;
-                    cur->next = new_node;
+                    new_node->next = cur;
+                    prev->next = new_node;
                 }
                 else {
                     SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
@@ -259,7 +260,6 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
             }
             else {
                 if (cur) {
-                    SentenceNode* after = cur->next;
 
                     if (*(sentence + insert) != '\0') {
                         int rest_len = strlen(sentence + insert);
@@ -269,8 +269,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                         SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                         pthread_rwlock_init(&new_node->lock, NULL);
                         new_node->text = rest;
-                        new_node->next = after;
-                        cur->next = new_node;
+                        new_node->next = cur;
+                        prev->next = new_node;
                     }
                 }
 
@@ -331,106 +331,3 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
     return 0;
 }
-
-// int session_append_chunk(WriteSession *ws, const char *chunk) {
-//     size_t old = ws->sentence_text ? strlen(ws->sentence_text) : 0;
-//     size_t add = strlen(chunk);
-//     char *newbuf = realloc(ws->sentence_text, old + add + 1);
-//     if (!newbuf) return -1;
-//     memcpy(newbuf + old, chunk, add+1);
-//     ws->sentence_text = newbuf;
-//     return 0;
-// }
-
-// int apply_write(FileModel* fm, WriteSession* ws) {
-//     if (!fm || !ws) return -1;
-
-//     pthread_mutex_lock(&fm->list_lock);
-
-//     SentenceNode *prev = NULL, *cur = fm->head;
-//     int idx = 0;
-//     while(cur && idx < ws->sentence_index) {
-//         prev = cur;
-//         cur = cur->next;
-//         idx++;
-//     }
-
-//     if (cur == NULL) {
-//         pthread_mutex_unlock(&fm->list_lock);
-//         return -2;
-//     }
-
-//     pthread_rwlock_wrlock(&cur->lock);
-
-//     char *new_text = ws->sentence_text ? strdup(ws->sentence_text) : strdup("");
-//     if (!new_text) {
-//         pthread_rwlock_unlock(&cur->lock);
-//         pthread_mutex_unlock(&fm->list_lock);
-//         return -1;
-//     }
-
-//     char *p = new_text;
-//     char *start = p;
-//     SentenceNode *last_inserted = NULL;
-//     SentenceNode *first_new = NULL;
-
-//     while (*p) {
-//         if (*p == '.' || *p == '!' || *p == '?' || *p == '\n') {
-//             size_t len = p - start + 1;
-//             char *chunk = malloc(len + 1);
-//            memcpy(chunk, start, len);
-//            chunk[len] = '\0';
-
-//            SentenceNode *node = calloc(1, sizeof(SentenceNode));
-//            node->text = chunk;
-//            pthread_rwlock_init(&node->lock, NULL);
-//            node->next = NULL;
-
-//            if (!first_new) first_new = node;
-//            if (last_inserted) last_inserted->next = node;
-//            last_inserted = node;
-
-//            p++;
-//            while (*p == ' ') p++;
-//            start = p;
-//         }
-//         else {
-//             p++;
-//         }
-//     }
-
-//     if (start && *start) {
-//         size_t len = strlen(start);
-//         char *chunk = malloc(len + 2);
-//         memcpy(chunk, start, len);
-//         chunk[len] = '\0';
-//         SentenceNode *node = calloc(1, sizeof(SentenceNode));
-//         node->text = chunk;
-//         pthread_rwlock_init(&node->lock, NULL);
-//         node->next = NULL;
-//         if (!first_new) first_new = node;
-//         if (last_inserted) last_inserted->next = node;
-//         last_inserted = node;
-//     }
-
-//     SentenceNode *after = cur->next;
-//     free(cur->text);
-//     pthread_rwlock_unlock(&cur->lock);
-//     pthread_rwlock_destroy(&cur->lock);
-//     free(cur);
-
-//     if (prev) prev->next = first_new;
-//     else fm->head = first_new;
-
-//     if (last_inserted) last_inserted->next = after;
-
-//     pthread_mutex_unlock(&fm->list_lock);
-
-//     // Note: each new node already has its own rwlock initialized. If you maintain
-//     // versions per-sentence, update them here (e.g. increment version counters).
-//     // Example (pseudo):
-//     // update_versions_for_inserted_nodes(fm, ws->sentence_index, number_of_new_nodes);
-
-//     free(new_text);
-//     return 0;
-// }
