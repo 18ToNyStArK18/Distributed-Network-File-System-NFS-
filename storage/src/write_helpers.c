@@ -140,12 +140,15 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         insert = 0;
 
     for (int i = 0 ; i < len ; i++) {
-        if (word_count == word_index) insert = i + 1;
+        if (word_count == word_index) insert = i;
         if (sentence && sentence[i] == ' ') word_count++;
     }
 
+    if (word_index == 0)
+        insert = 0;
+
     for (int i = 0 ; i < words_len ; i++) {
-        if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') delimeter_count++;
+        if (words[i] == '.' || words[i] == '?' || words[i] == '!') delimeter_count++;
     }
 
     if (insert == -1) {
@@ -156,11 +159,11 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
     if (sentence) {
         if (delimeter_count == 0) {
-            char *newbuf = malloc(len + strlen(words) + 2);
+            char *newbuf = malloc(len + words_len + 2);
             memcpy(newbuf, sentence, insert);
-            newbuf[insert] = ' ';
-            strcat(newbuf + insert + 1, words);
-            strcat(newbuf + insert + 1 + strlen(words), sentence + insert);
+            // newbuf[insert] = ' ';
+            strcat(newbuf + insert, words);
+            strcat(newbuf + insert + words_len, sentence + insert);
 
             free(node->text);
             node->text = newbuf;
