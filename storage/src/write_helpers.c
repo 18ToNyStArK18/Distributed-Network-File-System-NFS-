@@ -130,7 +130,6 @@ void end_write(FileModel *fm, WriteSession *ws) {
 }
 
 int update_sentence(SentenceNode *node, char *words, int word_index) {
-    word_index--;
     char *sentence = node->text;
     int word_count = 0, len = 0, delimeter_count = 0, insert = -1, words_len = strlen(words);
     
@@ -140,7 +139,7 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         insert = 0;
 
     for (int i = 0 ; i < len ; i++) {
-        if (word_count == word_index) insert = i;
+        if (word_count == word_index && insert == -1) insert = i;
         if (sentence && sentence[i] == ' ') word_count++;
     }
 
@@ -162,9 +161,9 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
             char *newbuf = malloc(len + words_len + 2);
             memcpy(newbuf, sentence, insert);
             // newbuf[insert] = ' ';
-            strcat(newbuf + insert, words);
-            strcat(newbuf + insert + words_len, sentence + insert);
-
+            strcat(newbuf, words);
+            strcat(newbuf, sentence + insert);
+            newbuf[len + words_len] = '\0';
             free(node->text);
             node->text = newbuf;
             printf("%s\n",node->text);

@@ -499,6 +499,7 @@ void* Handle_client(void* arg){
                     }
                 }
             }
+            print(hash);
         }
         else if(flag == ADDACCESS_r){
             char filename[MAX_FILE_NAME_SIZE];
