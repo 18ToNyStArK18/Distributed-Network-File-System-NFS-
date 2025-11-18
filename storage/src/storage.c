@@ -16,6 +16,19 @@ void* Handle_Client (void* arg);
 FileLockTable* get_or_build_sentence_table(const char *filename);
 int Pack(Packet* pkt , char * buff);
 void Unpack(char* buffer, uint32_t* flag, char** cmd_string); 
+int send_err(int sock){
+    Packet pkt;
+    pkt.REQ_FLAG = Fail;
+    char buff[BUFFER_SIZE];
+
+    int bytes_to_send = Pack(&pkt,buff);
+    uint32_t net_len = htonl(bytes_to_send);
+    send_all(sock,&net_len,sizeof(uint32_t));
+    send_all(sock,buff,bytes_to_send);
+    return 1;
+
+}
+
 
 pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
 
@@ -684,9 +697,9 @@ void* Handle_Client (void* arg) {
             FileModel *fm = get_or_create_file_model(write_filename);
             if (!fm) {
                 printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
+                send_err(new_socket);
                 continue;
             }
-            printf("Hello\n");
 
 
             SentenceNode *target = fm->head, *prev = NULL;
@@ -715,6 +728,7 @@ void* Handle_Client (void* arg) {
                 }
                 else {
                     printf("Sentence index out of range\n");
+                    send_err(new_socket);
                     continue;
                 }
             }
@@ -723,17 +737,25 @@ void* Handle_Client (void* arg) {
             WriteSession *ws = start_write(fm, sentence_idx);
             if (!ws) {
                 printf(RED "[SS] ERROR: Failed to start write session\n" NORMAL);
+                send_err(new_socket);
                 continue;
             }
 
             pthread_rwlock_wrlock(&target->lock);
             // actually make the changes to the sentence
+            int err = 0;
             for(int i=0;i<changes_indx;i++){
                 // change one by one 
                 //func(sentence,word,wordindx) --> iterate until that word indx and update that sentence and check for the delimters and change the sentences linked list
-                update_sentence(target, changes[i].words, changes[i].index);
+                if(update_sentence(target, changes[i].words, changes[i].index)==-1){
+                    pthread_rwlock_unlock(&target->lock);
+                    // decremet the writers and then change the file pointer to prev state;
+                    send_err(new_socket);   
+                    err =1;
+                }
             }
-
+            if(err)
+                continue;
             pthread_rwlock_unlock(&target->lock);
             end_write(fm,ws);
             Packet send_pkt;
