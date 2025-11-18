@@ -59,6 +59,16 @@ MinHeap* heap_init() {
 }
 
 void heap_push(MinHeap* h, Node x) {
+
+    for(int i=0;i<h->size;i++){
+        if(strcmp(h->arr[i].ss_ip,x.ss_ip)==0){
+            h->arr[i] = x;
+            printf("Heap changed\n");
+            return;
+        }
+
+    }
+
     if (!h) return;
     if (h->size >= h->capacity) {
         int newcap = h->capacity * 2;
