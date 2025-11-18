@@ -135,8 +135,6 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
     
     if(sentence)
         len = strlen(sentence);
-    else
-        insert = 0;
 
     for (int i = 0 ; i < len ; i++) {
         if (word_count == word_index && insert == -1) insert = i;
@@ -261,11 +259,11 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
             else {
                 if (cur) {
 
-                    if (*(sentence + insert) != '\0') {
+                    if (sentence[insert] != '\0') {
                         int rest_len = strlen(sentence + insert);
                         char *rest = malloc(rest_len + 1);
-                        memcpy(rest, sentence + insert, rest_len + 1);
-
+                        memcpy(rest, sentence + insert, rest_len);
+                        rest[rest_len] = '\0';
                         SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                         pthread_rwlock_init(&new_node->lock, NULL);
                         new_node->text = rest;
