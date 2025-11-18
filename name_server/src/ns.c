@@ -314,6 +314,7 @@ void* Handle_client(void* arg){
                 strcpy(filename, cmd_string);
                 int flag = 0;
                 print_details(filename, hash);
+                printf("point A\n");
                 for(int i=0;i<cache_size;i++){
                     if(strcmp(filename, cache[i].filename)==0){
                         flag = 1;
@@ -325,6 +326,7 @@ void* Handle_client(void* arg){
                 }
 
                 if (loc.ns_ss_port != -1 || get_file_location(hash, filename, &loc)) {
+                    printf("point B\n");
                     if(flag == 0){
                         printf("Cache miss\n");
                         int temp_idx = cache_indx % cache_size;
@@ -423,6 +425,7 @@ void* Handle_client(void* arg){
                     heap_fix(minheap, 0);
                 }
             }
+            print_details(filename,hash);
         }
         else if(flag == INFO){
             //no need to send to the Storage server

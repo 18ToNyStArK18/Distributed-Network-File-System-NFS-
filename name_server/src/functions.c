@@ -225,8 +225,6 @@ int delete_file(Hashmap *map,char *filename,userdatabase *users){
                 prev->next = current->next;
             }
 
-            free(current->filename);             
-            free(current);
             printf("Deleted the file from the database\n");
             return 1; // Done
         }
@@ -478,6 +476,17 @@ void print(Hashmap *map){
         Hashnode *curr = map->buckets[i];
         while(curr != NULL){
             printf("%s ip: %s port(ns_SS): %d  port(client_ss): %d\n",curr->filename,curr->location.ip,curr->location.ns_ss_port,curr->location.ss_port);
+            rw_access *it;
+            it = curr->read;
+            while(it){
+                printf("%s\n",it->username);
+                it = it->next;
+            }
+            it = curr->write;
+            while(it){
+                printf("%s\n",it->username);
+                it=it->next;
+            }
             curr = curr->next;
         }
     }
