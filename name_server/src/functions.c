@@ -142,6 +142,9 @@ int add_file(Hashmap *map, char *filename, char *ip, int port,char *username,int
     newnode->location.ss_port = port;
     newnode->location.ns_ss_port = ns_ss_port;
     newnode->filename = strdup(filename);
+    newnode->lines =0;
+    newnode->chars =0;
+    newnode->wc =0;
     rw_access *read_a = (rw_access *)malloc(sizeof(rw_access));
     rw_access *write_a = (rw_access *)malloc(sizeof(rw_access));
     strcpy(read_a->username,username);
@@ -533,7 +536,7 @@ void print_file_data(Hashmap *map,char *filename,char *buffer){
     while(current){
         if(strcmp(current->filename,filename)==0){
             //print the details of the file
-            sprintf(buffer,"| %-13s | %5d | %5d | %-16s | %-10s |\n",filename,current->wc,current->chars,current->time,current->Owner);
+            sprintf(buffer,"| %-13s | %5d | %5d | %5d | %-16s | %-10s |\n",filename,current->wc,current->chars,current->lines,current->time,current->Owner);
             return;
         }
     }
@@ -545,7 +548,7 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
         char temp_buff[1024];
         Packet pkt;
         pkt.REQ_FLAG = VIEW_DATA;
-        sprintf(temp_buff,"| %-13s | %-5s | %-5s | %-16s | %-10s |\n","Filename","Words","Chars","Last Access Time","Owner");
+        sprintf(temp_buff,"| %-13s | %-5s | %-5s | %-5s | %-16s | %-10s |\n","Filename","Words","Chars","lines","Last Access Time","Owner");
         strcpy(pkt.req_cmd,temp_buff);
         int bytes_to_send = Pack(&pkt,temp_buff);
         uint32_t net_len = htonl(bytes_to_send);
@@ -659,7 +662,7 @@ void print_info(Hashmap *map, char *filename, int socket){
             char buffer[1024];
             Packet pkt;
             pkt.REQ_FLAG = INFO_DATA;
-            sprintf(buffer,"Filename: %s  Owner: %s  Wordcount: %d  Size: %d LAST-ACCESS: %s\nREAD -->",current->filename,current->Owner,current->wc,current->chars,current->time);
+            sprintf(buffer,"Filename: %s  Owner: %s  Wordcount: %d  Size: %d Lines: %d LAST-ACCESS: %s\nREAD -->",current->filename,current->Owner,current->wc,current->chars,current->lines,current->time);
             strcpy(pkt.req_cmd,buffer);
             int bytes_to_send = Pack(&pkt,buffer);
             uint32_t net_len = htonl(bytes_to_send);
@@ -858,5 +861,20 @@ int update_filename(char *filename,Hashmap *map, int client_port , int ns_port){
         }
     }
     printf("Unexpected file registered\n");
+    return -1;
+}
+int update_meta(char *filename, Hashmap *map, int wc, int lc, int cc){
+    long hash = hash_fucn(filename);
+    int index = abs(hash) % map->size;
+    Hashnode *current = map->buckets[index];
+    while(current){
+        if(strcmp(filename,current->filename)==0){
+
+            current->wc += wc;
+            current->chars += cc;
+            current->lines += lc;
+            return 1;
+        }
+    }
     return -1;
 }

@@ -839,7 +839,22 @@ int main(){
                 sscanf(cmd_string,"%s %d",ip,&port);
                 printf("Found the file locaion %s:%d\n",ip,port);
             }
-            int a = client_ss_write(ip,port,parsed.cmd[1],line_indx);             
+            int word_count=0,line_count=0,char_count=0;
+            int a = client_ss_write(ip,port,parsed.cmd[1],line_indx,&word_count,&line_count,&char_count);             
+            if(a==-1){
+                word_count =0;
+                line_count =0;
+                char_count =0;
+            }
+            char send_buff[BUFFER_SIZE];
+            sprintf(send_buff,"%d %d %d",word_count,line_count,char_count);
+            Packet Meta;
+            Meta.REQ_FLAG = meta;
+            strcpy(Meta.req_cmd,send_buff);
+            int bytes_to_send = Pack(&Meta,send_buff);
+            int send_net_len = htonl(bytes_to_send);
+            send_all(client_socket,&send_net_len,sizeof(uint32_t));
+            send_all(client_socket,send_buff,bytes_to_send);
 
         }
         else{

@@ -640,6 +640,7 @@ void* Handle_client(void* arg){
             Packet pkt;
             memset(&pkt, 0, sizeof(pkt));   
 
+            char filename[MAX_FILE_NAME_SIZE];
             if (hash == NULL) {
                 pkt.REQ_FLAG = FILE_DOESNT_EXIST;
                 printf("Hashmap not initialized!\n");
@@ -647,7 +648,6 @@ void* Handle_client(void* arg){
             else {
                 filelocation loc;
                 loc.ns_ss_port = -1;
-                char filename[MAX_FILE_NAME_SIZE];
                 strcpy(filename, cmd_string);
                 int flag = 0;
                 print_details(filename, hash);
@@ -698,6 +698,23 @@ void* Handle_client(void* arg){
             } else {
                 printf(GREEN "[NS] Sent SS IP + Port info successfully\n" NORMAL);
             }
+            char recv_buff[BUFFER_SIZE];
+            uint32_t recv_len;
+            recv_all(new_socket,&recv_len,sizeof(uint32_t));
+            int bytes = ntohl(recv_len);
+            recv_all(new_socket,recv_buff,bytes);
+            uint32_t flag;
+            char *cmd_string;
+            Unpack(recv_buff,&flag,&cmd_string);
+            int wc,lc,cc;
+            sscanf(cmd_string,"%d %d %d",&wc,&lc,&cc);
+            if(update_meta(filename,hash,wc,lc,cc)==1){
+                printf("wc:%d lc:%d cc:%d\n",wc,lc,cc);
+            }
+            else{
+                printf("Updating meta data failed\n");
+            }
+
         }
     }
 

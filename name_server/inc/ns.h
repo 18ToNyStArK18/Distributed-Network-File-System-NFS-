@@ -39,6 +39,7 @@ typedef struct Hashnode{
     char Owner[MAX_WORD_SIZE];
     int wc;
     int chars;
+    int lines;
     char time[100];
     struct Hashnode *next;
     struct rw_access *read;
@@ -85,3 +86,4 @@ void find_ip_by_filename(char *filename, Hashmap *map, char* ip, int* port);
 int is_file_present(char *filename,Hashmap *map);
 int update_filename(char *filename,Hashmap *map,int client_port,int ns_port);
 int hash_fucn(char *s);
+int update_meta(char *filename,Hashmap *map,int wc,int lc,int cc);

@@ -25,7 +25,7 @@ void print_parsed(command_str *command_struct){
     for(int i=0;i<n;i++)
         printf("%dth argument : %s\n",i,command_struct->cmd[i]);
 }
-int client_ss_write(char *ip , int port , char *filename,int line_idx){
+int client_ss_write(char *ip , int port , char *filename,int line_idx,int *wc,int *lc,int *cc){
     int ss_sock;
     struct sockaddr_in ss_addr;
     if((ss_sock = socket(AF_INET,SOCK_STREAM,0))<0){
@@ -62,6 +62,19 @@ int client_ss_write(char *ip , int port , char *filename,int line_idx){
     while(flag){
         char line[1024];
         fgets(line,1023,stdin);
+        int i=0;
+        while(i < strlen(line) && line[i] != ' ')
+            i++;
+        i++; //skip first space after the word index
+        while(i < strlen(line)){
+            if(line[i]==' ' || line[i]=='.' || line[i]=='?' || line[i]=='!'){
+                *wc = *wc + 1;
+                if(line[i] != ' ')
+                    *lc = *lc + 1;
+            }
+            *cc = *cc + 1;
+            i++;
+        }
         if(line[0]=='E')
             flag = 0;
         pkt.REQ_FLAG = WRITE_DATA;
