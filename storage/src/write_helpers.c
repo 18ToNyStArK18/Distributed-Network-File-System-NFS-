@@ -25,7 +25,6 @@ FileModel* get_or_create_file_model(const char *filename) {
     // TO ADD: load the original file content into LL (can add in WRITE also, let's see)
     FILE *fp = fopen(filename, "r");
     if (fp) {
-        printf("file opened\n");
         SentenceNode *tail = NULL;
         char *sentence = NULL;
         size_t sent_cap = 0, sent_len =0;
@@ -422,7 +421,6 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         for (int i = 0 ; i < words_len ; i++) {
             if (words[i] == '.' || words[i] == '?' || words[i] == '!' || words[i] == '\n') {
                 if (first_time) {
-                    printf("This reached\n");
                     char *newbuf = malloc(insert + i + 2); // insert = 0 over here
                     // memcpy(newbuf, sentence, insert);
                     memcpy(newbuf + insert, words, i + 1);
@@ -434,7 +432,6 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                     cur = cur->next;
                 }
                 else {
-                    printf("How the fuck this reached\n");
                     SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                     pthread_rwlock_init(&new_node->lock, NULL);
                     new_node->next = NULL;
@@ -566,12 +563,9 @@ void copy_LL(FileModel* src, FileModel* dst) {
     pthread_mutex_lock(&dst->list_lock);
 
     // Free old list in dst
-    printf("Before\n");
     free_list(dst->head);
-    printf("After\n");
     // Deep clone from src
     dst->head = clone_list(src->head);
-    printf("AFTER AFTER\n");
     pthread_mutex_unlock(&dst->list_lock);
     pthread_mutex_unlock(&src->list_lock);
 }

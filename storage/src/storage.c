@@ -657,15 +657,19 @@ void* Handle_Client (void* arg) {
             printf("[Thread %ld] Writiing to file: %s, sentence: %d\n", pthread_self(), write_filename, sentence_idx);
 
             char content[BUFFER_SIZE];
-
+            int a =1;
             while (1) { 
                 if (recv_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                     printf(RED "ERROR: Failed to read WRITE length.\n" NORMAL);
+                    a =0;
+                    break;
                 }
 
                 uint32_t content_len = ntohl(net_len);
                 if (recv_all(new_socket, content,content_len) <= 0) {
+                    a=0;
                     printf(RED "ERROR: Failed to read WRITE content.\n" NORMAL);
+                    break;
                 }
 
                 uint32_t flag;
@@ -684,6 +688,8 @@ void* Handle_Client (void* arg) {
                 strcpy(changes[changes_indx++].words,words);
                 // save all of this in an array of structs so that it can be used to change the sentence later
             }
+            if(a==0)
+                continue;
             char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
             int temp;
             sscanf(file, "%s %d", temp_file, &temp);
@@ -741,7 +747,6 @@ void* Handle_Client (void* arg) {
                 continue;
             }
              
-            printf("B\n");
             // copy from fm to prev_fm
 
             FileModel *local = calloc(1, sizeof(FileModel));
@@ -754,9 +759,7 @@ void* Handle_Client (void* arg) {
             copy_LL(prev_fm, local);
 
             copy_LL(fm, prev_fm);
-            printf("C\n");
             pthread_rwlock_wrlock(&target->lock);
-            printf("After target->next->lock\n");
             // actually make the changes to the sentence
             int err = 0;
             for(int i=0;i<changes_indx;i++){
@@ -797,7 +800,6 @@ void* Handle_Client (void* arg) {
                 continue;
             }
             //end write to update the number of writer on this file
-            printf("update\n");
         }
         else if (flag == STREAM) {
             // send contents of file line by line
