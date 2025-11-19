@@ -413,7 +413,9 @@ void* Handle_NS (void* arg) {
 
             pthread_mutex_unlock(&FILES_C_AND_W);
 
+            delete_file(filename);
             Packet pkt;
+            printf("[SS] DELETE request for '%s' -> %s\n", filename, send_flag == Success ? "Success" : "File Does Not Exist");
             memset(&pkt, 0, sizeof(pkt));
             pkt.REQ_FLAG = send_flag;
 
@@ -429,8 +431,6 @@ void* Handle_NS (void* arg) {
                 printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
             }
             //delete that file_pointer also
-            delete_file(filename);
-            printf("[SS] DELETE request for '%s' -> %s\n", filename, send_flag == Success ? "Success" : "File Does Not Exist");
         }
         else if (flag == EXEC) {
             // send contents of file line by line
