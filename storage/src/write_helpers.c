@@ -160,11 +160,19 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
         if (delimeter_count == 0) {
             char *newbuf = malloc(len + words_len + 2);
             memcpy(newbuf, sentence, insert);
-            if (insert == len - 1)
+            
+            if (insert == len - 1) {
                 newbuf[insert] = ' ';
-            strcat(newbuf, words);
-            strcat(newbuf, sentence + insert);
-            newbuf[len + words_len] = '\0';
+                memcpy(newbuf + insert + 1, words, words_len);
+                memcpy(newbuf + insert + 1 + words_len, sentence + insert, len - insert);
+                newbuf[len + words_len + 1] = '\0';
+            }
+            else {
+                memcpy(newbuf + insert, words, words_len);
+                memcpy(newbuf + insert + words_len, sentence + insert, len - insert);
+                newbuf[len + words_len] = '\0';
+            }
+
             free(node->text);
             node->text = newbuf;
             printf("%s\n",node->text);
@@ -181,7 +189,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
             if (sentence && insert < len) {
                 remainder_len = len - insert;
                 original_remainder = malloc(remainder_len + 1);
-                memcpy(original_remainder, sentence + insert, remainder_len + 1);
+                memcpy(original_remainder, sentence + insert, remainder_len);
+                original_remainder[remainder_len] = '\0';
             }
             
             for (int i = 0 ; i < words_len ; i++) {
@@ -248,7 +257,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                 char *merged = malloc(tail_len + rest_len + 1);
                 memcpy(merged, words + prev_idx, tail_len);
                 if (original_remainder) {
-                    memcpy(merged + tail_len, original_remainder, rest_len + 1);
+                    memcpy(merged + tail_len, original_remainder, rest_len);
+                    merged[tail_len + rest_len] = '\0';
                 } else {
                     merged[tail_len] = '\0';
                 }
@@ -289,7 +299,8 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                     if (original_remainder && original_remainder[0] != '\0') {
                         int rest_len = strlen(original_remainder);
                         char *rest = malloc(rest_len + 1);
-                        memcpy(rest, original_remainder, rest_len + 1);
+                        memcpy(rest, original_remainder, rest_len);
+                        rest[rest_len] = '\0';
 
                         SentenceNode *new_node = calloc(1, sizeof(SentenceNode));
                         pthread_rwlock_init(&new_node->lock, NULL);
