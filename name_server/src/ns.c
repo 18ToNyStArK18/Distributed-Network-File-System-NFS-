@@ -703,7 +703,9 @@ void* Handle_client(void* arg){
             char filename[MAX_FILE_NAME_SIZE]; 
             strcpy(cmd_string,filename);
             int can_w = can_write(hash,filename,username_of_client);
+            printf("hi\n");
             if(can_w == -1){
+                printf("Can write failed %s\n",filename);
                 Packet pkt;
                 pkt.REQ_FLAG = NO_access;
                 char send_buff[BUFFER_SIZE];

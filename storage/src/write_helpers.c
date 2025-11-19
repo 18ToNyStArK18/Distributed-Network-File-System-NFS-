@@ -461,6 +461,9 @@ void delete_file(char *filename){
     extern int global_model_count;
     extern  pthread_mutex_t global_models_lock;
 
+    extern FileModel *prev_models[];
+    extern int global_prev_count;
+
     int i = 0;
     pthread_mutex_lock(&global_models_lock);
     while (i < global_model_count){
@@ -475,9 +478,11 @@ void delete_file(char *filename){
     FileModel *curr_file = global_models[i];
     while(i+1<global_model_count){
         global_models[i] = global_models[i+1];
+        prev_models[i] = prev_models[i+1];
         i++;
     }
     global_model_count--;
+    global_prev_count--;
     pthread_mutex_unlock(&global_models_lock);
     SentenceNode *it =  curr_file->head,*prev=NULL;
 
@@ -492,16 +497,29 @@ void delete_file(char *filename){
     pthread_mutex_destroy(&curr_file->list_lock);
     pthread_mutex_destroy(&curr_file->writer_count_lock);
     free(curr_file);
+    curr_file = prev_models[i];
+    prev = NULL;
+    while(it){
+        prev = it;
+        it = it->next;
+        pthread_rwlock_destroy(&prev->lock);
+        if(prev->text)
+            free(prev->text);
+        free(prev);
+    }
+    pthread_mutex_destroy(&curr_file->list_lock);
+    pthread_mutex_destroy(&curr_file->writer_count_lock);
+
     printf("Removed the file ram successfully\n");
 }
 
 SentenceNode* clone_list(SentenceNode *head) {
     if (!head) return NULL;
-
+    if (!head->text) return NULL;
     SentenceNode *new_head = NULL;
     SentenceNode *tail = NULL;
 
-    while (head) {
+    while (head && head->text) {
         SentenceNode *node = malloc(sizeof(SentenceNode));
         node->text = strdup(head->text);
         pthread_rwlock_init(&node->lock, NULL);
@@ -534,11 +552,12 @@ void copy_LL(FileModel* src, FileModel* dst) {
     pthread_mutex_lock(&dst->list_lock);
 
     // Free old list in dst
+    printf("Before\n");
     free_list(dst->head);
-
+    printf("After\n");
     // Deep clone from src
     dst->head = clone_list(src->head);
-
+    printf("AFTER AFTER\n");
     pthread_mutex_unlock(&dst->list_lock);
     pthread_mutex_unlock(&src->list_lock);
 }

@@ -53,3 +53,4 @@ void print_file(FileModel *fm);
 void delete_file(char *filename);
 FileModel* get_or_create_prev_file_model(const char *filename);
 void copy_LL(FileModel* src, FileModel* dst);
+int save_to_disk(FileModel *fm,FileModel *prev);

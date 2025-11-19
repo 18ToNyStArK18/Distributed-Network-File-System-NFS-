@@ -464,9 +464,14 @@ void* Handle_NS (void* arg) {
 
             for (int i = 0 ; i < global_model_count ; i++) {
                 if (strcmp(global_models[i]->filename, filename) == 0 ) {
-                    if (prev_models[i]->head) {
+                    if (1) {
                         pthread_mutex_lock(&global_models_lock);
                         copy_LL(prev_models[i], global_models[i]);
+                        pthread_mutex_lock(&global_models[i]->writer_count_lock);
+                        int count = global_models[i]->writer_count;
+                        pthread_mutex_unlock(&global_models[i]->writer_count_lock);
+                        if(count == 0)
+                            save_to_disk(global_models[i],prev_models[i]);
                         pthread_mutex_unlock(&global_models_lock);
                         pkt.REQ_FLAG = Success;
                     }
@@ -644,6 +649,7 @@ void* Handle_Client (void* arg) {
             }
 
             FileModel *fm = get_or_create_file_model(write_filename);
+            printf("A\n");
             if (!fm) {
                 printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
                 send_err(new_socket);
@@ -689,7 +695,15 @@ void* Handle_Client (void* arg) {
                 send_err(new_socket);
                 continue;
             }
-
+            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
+            int temp;
+            sscanf(file, "%s %d", temp_file, &temp);
+            sprintf(prev_filename, "tmp/%s", temp_file);
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename);  
+            printf("B\n");
+            // copy from fm to prev_fm
+            copy_LL(fm, prev_fm);
+            printf("C\n");
             pthread_rwlock_wrlock(&target->lock);
             // actually make the changes to the sentence
             int err = 0;
@@ -708,14 +722,6 @@ void* Handle_Client (void* arg) {
             if(err)
                 continue;
             pthread_rwlock_unlock(&target->lock);
-            
-            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
-            int temp;
-            sscanf(file, "%s %s", temp_file, &temp);
-            sprintf(prev_filename, "tmp/%s", temp_file);
-            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename);  
-            // copy from fm to prev_fm
-            copy_LL(fm, prev_fm);
 
             end_write(fm, ws, prev_fm);
             Packet send_pkt;
@@ -753,7 +759,7 @@ void* Handle_Client (void* arg) {
                 }
 
                 int len = strlen(text), pos = 0, w = 0;
-            
+
                 char word[BUFFER_SIZE];
 
                 while (pos < len) {

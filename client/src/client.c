@@ -409,7 +409,7 @@ int main(){
             printf("---------------------------------\n");
         }
         else if(strncmp(command_type,"READ",4)==0){
-            if(parsed.n == 2){
+            if(parsed.n != 2){
                 printf("Wrong format \"READ <filename> \"\n");
                 continue;
             }
