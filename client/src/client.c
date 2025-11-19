@@ -756,6 +756,7 @@ int main(){
             printf("[%s] Requested UNDO Filename: %s\n", user_name, parsed.cmd[1]);
 
             pkt.REQ_FLAG = UNDO;
+            strcpy(pkt.req_cmd,parsed.cmd[1]);
             int payload_len = Pack(&pkt, buffer);
 
             // ---- SEND packet length + data ----

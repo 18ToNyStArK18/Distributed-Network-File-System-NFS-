@@ -3,6 +3,7 @@
 #include "../inc/heap.h"
 #include "assert.h"
 #include <pthread.h>
+#include <stdint.h>
 #include <string.h>
 
 #define BUFFER_SIZE 1024
@@ -632,8 +633,41 @@ void* Handle_client(void* arg){
         }
         else if(flag == UNDO){
             // need to store somewhere which line is changed by the user and then change it back
-            strcpy(msg,"ACK for the UNDO");
+            char filename[MAX_FILE_NAME_SIZE]; 
+            strcpy(cmd_string,filename);
+            int can_w = can_write(hash,filename,username_of_client);
+            if(can_w == -1){
+                Packet pkt;
+                pkt.REQ_FLAG = NO_access;
+                char send_buff[BUFFER_SIZE];
+                int bytes_to_send = Pack(&pkt,send_buff);
+                uint32_t net_len = htonl(bytes_to_send);
+                send_all(new_socket,&net_len,sizeof(uint32_t));
+                send_all(new_socket,send_buff,bytes_to_send);
+                continue;
+            }
+            Packet pkt;
+            pkt.REQ_FLAG = UNDO;
+            strcpy(pkt.req_cmd,filename);
+            char send_buff[BUFFER_SIZE];
+            int size = Pack(&pkt,send_buff);
+            char undo_ip[INET_ADDRSTRLEN];
+            int undo_port;
+            find_ip_by_filename(cmd_string, hash, undo_ip, &undo_port);
+            printf("ip : %s port : %d\n",undo_ip,undo_port);
+            int a = send_to_SS(send_buff, undo_ip, undo_port, size);
+            Packet reply_pkt;
+            memset(&reply_pkt, 0, sizeof(reply_pkt));
+            reply_pkt.REQ_FLAG = (a == 0) ? Success : FILE_DOESNT_EXIST;
+            char reply_buff[BUFFER_SIZE];
+            int reply_size = Pack(&reply_pkt, reply_buff);
 
+            uint32_t net_len = htonl(reply_size);
+            if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "[NS] ERROR: Failed to send DELETE length.\n" NORMAL);
+            }
+
+            send_all(new_socket, reply_buff, reply_size);
         }
         else if(flag == WRITE_REQ){
             // need to send the ip and the port of the ss to the client
