@@ -32,6 +32,7 @@ typedef struct {
     SentenceNode *head;
     int writer_count;
     pthread_mutex_t list_lock, writer_count_lock;
+    pthread_rwlock_t for_delete;
 } FileModel;
 
 typedef struct {

@@ -20,6 +20,7 @@ FileModel* get_or_create_file_model(const char *filename) {
     fm->writer_count = 0;
     pthread_mutex_init(&fm->list_lock, NULL);
     pthread_mutex_init(&fm->writer_count_lock, NULL);
+    pthread_rwlock_init(&fm->for_delete, NULL);
 
     // TO ADD: load the original file content into LL (can add in WRITE also, let's see)
     FILE *fp = fopen(filename, "r");
@@ -95,6 +96,7 @@ FileModel* get_or_create_prev_file_model(const char *filename) {
     fm->writer_count = 0;
     pthread_mutex_init(&fm->list_lock, NULL);
     pthread_mutex_init(&fm->writer_count_lock, NULL);
+    pthread_rwlock_init(&fm->for_delete, NULL);
 
     // TO ADD: load the original file content into LL (can add in WRITE also, let's see)
     FILE *fp = fopen(filename, "r");
@@ -471,11 +473,12 @@ void delete_file(char *filename){
             break;
         i++;
     }
-    if(i ==  global_model_count){
+    if(i == global_model_count){
         pthread_mutex_unlock(&global_models_lock);
         return;
     }
     FileModel *curr_file = global_models[i];
+    pthread_rwlock_wrlock(&curr_file->for_delete);
     while(i+1<global_model_count){
         global_models[i] = global_models[i+1];
         prev_models[i] = prev_models[i+1];
@@ -496,7 +499,10 @@ void delete_file(char *filename){
     }
     pthread_mutex_destroy(&curr_file->list_lock);
     pthread_mutex_destroy(&curr_file->writer_count_lock);
+    pthread_rwlock_unlock(&curr_file->for_delete);
+    pthread_rwlock_destroy(&curr_file->for_delete);
     free(curr_file);
+
     curr_file = prev_models[i];
     prev = NULL;
     while(it){
@@ -509,6 +515,7 @@ void delete_file(char *filename){
     }
     pthread_mutex_destroy(&curr_file->list_lock);
     pthread_mutex_destroy(&curr_file->writer_count_lock);
+
 
     printf("Removed the file ram successfully\n");
 }

@@ -550,6 +550,8 @@ void* Handle_Client (void* arg) {
                 printf(RED "[SS] failed to load file model in READ\n" NORMAL);
                 continue;
             }
+            pthread_rwlock_rdlock(&fm->for_delete);
+
             char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
             int temp;
             sscanf(file, "%s %d", temp_file, &temp);
@@ -585,7 +587,7 @@ void* Handle_Client (void* arg) {
 
                     if (send_all(new_socket, &net_len, sizeof(net_len)) < 0) {
                         printf(RED "[SS] Failed to send READ DATA length\n" NORMAL);
-                        break;;
+                        break;
                     }
 
                     if (send_all(new_socket, send_buff, bytes_to_send) < 0) {
@@ -599,6 +601,8 @@ void* Handle_Client (void* arg) {
                 pthread_rwlock_unlock(&cur->lock);
                 cur = cur->next;
             }
+
+            pthread_rwlock_unlock(&fm->for_delete);
 
             // Send READ_END
             Packet end;
@@ -659,14 +663,15 @@ void* Handle_Client (void* arg) {
             sprintf(prev_filename, "tmp/%s", temp_file);
 
             FileModel *fm = get_or_create_file_model(write_filename);
-            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename); 
-            printf("A\n");
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename);
+
             if (!fm) {
                 printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
                 send_err(new_socket);
                 continue;
             }
 
+            pthread_rwlock_rdlock(&fm->for_delete);
 
             SentenceNode *target = fm->head, *prev = NULL;
             int idx = 0;
@@ -695,6 +700,7 @@ void* Handle_Client (void* arg) {
                 else {
                     printf("Sentence index out of range\n");
                     send_err(new_socket);
+                    pthread_rwlock_unlock(&fm->for_delete);
                     continue;
                 }
             }
@@ -704,6 +710,7 @@ void* Handle_Client (void* arg) {
             if (!ws) {
                 printf(RED "[SS] ERROR: Failed to start write session\n" NORMAL);
                 send_err(new_socket);
+                pthread_rwlock_unlock(&fm->for_delete);
                 continue;
             }
              
@@ -726,11 +733,15 @@ void* Handle_Client (void* arg) {
                 }
                 print_file(fm);
             }
-            if(err)
+            if(err){
+                pthread_rwlock_unlock(&fm->for_delete);
                 continue;
+            }
             pthread_rwlock_unlock(&target->lock);
 
             end_write(fm, ws, prev_fm);
+            pthread_rwlock_unlock(&fm->for_delete);
+            
             Packet send_pkt;
             send_pkt.REQ_FLAG = Success;
             char send_buffer[BUFFER_SIZE];
@@ -748,6 +759,7 @@ void* Handle_Client (void* arg) {
                 printf(RED "[SS] failed to load file model in READ\n" NORMAL);
                 continue;
             }
+            pthread_rwlock_rdlock(&fm->for_delete);
 
             char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
             int temp;
@@ -812,6 +824,7 @@ void* Handle_Client (void* arg) {
                 pthread_rwlock_unlock(&cur->lock);
                 cur = cur->next;
             }
+            pthread_rwlock_unlock(&fm->for_delete);
 
             // Send STREAM_END
             Packet end;
