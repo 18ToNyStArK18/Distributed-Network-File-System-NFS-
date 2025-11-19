@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdbool.h>
 #include <dirent.h>
+#include <sys/param.h>
 #include "../../cmn_inc.h"
 
 #define BUFFER_SIZE 1024
