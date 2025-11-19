@@ -297,6 +297,8 @@ int main(){
                 printf("User: %s is requesting %c access for the file %s Enter Y to grant N to deny\n",username,perms,filename); 
                 char Res[3];
                 fgets(Res,2,stdin);
+                char c;
+                while ((c = getchar()) != '\n' && c != EOF);
                 if(Res[0]=='Y'){
                     pkt.REQ_FLAG = Success;
                     bytes_to_send = Pack(&pkt,send_buffer);

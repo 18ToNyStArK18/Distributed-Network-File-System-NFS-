@@ -190,7 +190,6 @@ void* Handle_client(void* arg){
             fclose(fp);
         }
         else if(flag == VIEW_REQS){
-            printf("Hello\n");
             FILE *fp = fopen(req_access_file_name,"r");
             char *filedata[10];
             for(int i=0;i<10;i++)
@@ -198,8 +197,7 @@ void* Handle_client(void* arg){
             int file_idx=0;
             if(!fp)
                 printf("Filedoesnt exist%s\n",req_access_file_name);
-            printf("hello");
-            while(fscanf(fp,"%[^\\n]",filedata[file_idx]) != EOF){
+            while(fgets(filedata[file_idx],1020,fp) != NULL){
                 printf("%s\n",filedata[file_idx]);
                 file_idx++;
             }
@@ -213,6 +211,7 @@ void* Handle_client(void* arg){
                 char username[MAX_WORD_SIZE];
                 char filename[MAX_FILE_NAME_SIZE];
                 sscanf(filedata[i],"%s %c %s %s",owner,&perms,username,filename);
+                printf("filedata : %s\n",filedata[i]);
                 if(strcmp(owner,username_of_client)==0){
                     printf("CURRENT user is the owner\n");
                     pkt.REQ_FLAG= VIEW_REQS_DATA;
