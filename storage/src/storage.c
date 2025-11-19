@@ -504,141 +504,54 @@ void* Handle_Client (void* arg) {
         printf("[Thread %ld] Client %s Flag: %u, Cmd: %s\n", pthread_self(), client_ip, flag, strlen(filename) ? filename : "(null)");
 
         if (flag == READ_REQ_SS) {
-            FILE* fp = fopen(filename, "r");
-            if (fp == NULL) {
-                perror("Error opening file");
+            FileModel *fm = get_or_create_file_model(filename);
+            if (!fm) {
+                printf(RED "[SS] failed to load file model in READ\n" NORMAL);
                 continue;
             }
 
-            FileLockTable *table = get_or_build_sentence_table(filename);
-            if (!table) {
-                fclose(fp);
-                perror("get_or_build_sentence_table failed");
-                continue;
-            }
+            pthread_mutex_lock(&fm->list_lock);
 
-            char sentence[BUFFER_SIZE];
-            int idx = 0, sentence_idx = 0;
-            int c;
-            bool lock_held = false;
-            pthread_mutex_t flag_lock = PTHREAD_MUTEX_INITIALIZER;
+            SentenceNode* cur = fm->head;
+            int sentence_idx = 0;
 
-            while (1) {
-                // Lock at the START of a sentence (before reading its first char)
-                if (idx == 0 && sentence_idx < table->sentence_count) {
-                    pthread_rwlock_rdlock(&table->sentences[sentence_idx].lock);
-                    lock_held = true;
-                }
+            pthread_mutex_unlock(&fm->list_lock);
 
-                c = fgetc(fp);
-                if (c == EOF) {
-                    pthread_mutex_lock(&flag_lock);
-                    if (lock_held) {
-                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
-                        lock_held = false;
-                    }
-                    pthread_mutex_unlock(&flag_lock);
-                    break;
-                }
+            while (cur) {
+                pthread_rwlock_rdlock(&cur->lock);
 
-                sentence[idx++] = c;  // we are under the sentence lock here
-
-                // End of sentence?
-                if (c == '.' || c == '!' || c == '?' || c == '\n') {
-                    sentence[idx] = '\0';
+                int len = 0, offset = 0;
+                if (cur->text) len = strlen(cur->text);
+            
+                while (offset < len) {
+                    int chunk = MIN(BUFFER_SIZE - 1, len - offset);
 
                     Packet pkt;
                     memset(&pkt, 0, sizeof(pkt));
                     pkt.REQ_FLAG = READ_DATA;
-                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
+                    memcpy(pkt.req_cmd, cur->text + offset, chunk);
+                    pkt.req_cmd[chunk] = '\0';
 
                     char send_buff[BUFFER_SIZE];
                     int bytes_to_send = Pack(&pkt, send_buff);
-
                     uint32_t net_len = htonl(bytes_to_send);
 
-                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
-                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                    if (send_all(new_socket, &net_len, sizeof(net_len)) < 0) {
+                        printf(RED "[SS] Failed to send READ DATA length\n" NORMAL);
+                        break;;
                     }
 
-                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
-                        perror("send_all failed");
-                        if (lock_held) {
-                            pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
-                            lock_held = false;
-                        }
+                    if (send_all(new_socket, send_buff, bytes_to_send) < 0) {
+                        printf(RED "[SS] Failed to send READ_DATA\n", NORMAL);
                         break;
                     }
 
-                    // Release the sentence lock now that it’s fully sent
-                    pthread_mutex_lock(&flag_lock);
-                    if (lock_held) {
-                        pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
-                        lock_held = false;
-                    }
-                    pthread_mutex_unlock(&flag_lock);
-
-                    idx = 0;
-                    sentence_idx++;
+                    offset += chunk;
                 }
 
-                // Very long sentence chunking (keep the SAME lock held)
-                if (idx >= BUFFER_SIZE - 2) {
-                    sentence[idx] = '\0';
-
-                    Packet pkt;
-                    memset(&pkt, 0, sizeof(pkt));
-                    pkt.REQ_FLAG = READ_DATA;
-                    strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
-
-                    char send_buff[BUFFER_SIZE];
-                    int bytes_to_send = Pack(&pkt, send_buff);
-
-                    uint32_t net_len = htonl(bytes_to_send);
-
-                    if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
-                        printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
-                    }
-
-                    if (send_all(new_socket, send_buff, bytes_to_send) <= 0) {
-                        perror("send_all failed");
-                        // do NOT unlock here, same sentence still in progress
-                        break;
-                    }
-
-                    idx = 0;  // continue SAME sentence under the same lock
-                }
+                pthread_rwlock_unlock(&cur->lock);
+                cur = cur->next;
             }
-
-            // Tail without terminal punctuation
-            if (idx > 0) {
-                sentence[idx] = '\0';
-
-                Packet pkt;
-                memset(&pkt, 0, sizeof(pkt));
-                pkt.REQ_FLAG = READ_DATA;
-                strncpy(pkt.req_cmd, sentence, sizeof(pkt.req_cmd) - 1);
-
-                char send_buff[BUFFER_SIZE];
-                int bytes_to_send = Pack(&pkt, send_buff);
-
-                uint32_t net_len = htonl(bytes_to_send);
-
-                if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
-                    printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
-                }
-                send_all(new_socket, send_buff, bytes_to_send);
-
-                // If we still hold the lock (partial last sentence), release it
-                pthread_mutex_lock(&flag_lock);
-                if (lock_held) {
-                    pthread_rwlock_unlock(&table->sentences[sentence_idx].lock);
-                    lock_held = false;
-                }
-                pthread_mutex_unlock(&flag_lock);
-            }
-
-            fclose(fp);
 
             // Send READ_END
             Packet end;
