@@ -338,7 +338,6 @@ void* Handle_client(void* arg){
                 strcpy(filename, cmd_string);
                 int flag = 0;
                 print_details(filename, hash);
-                printf("point A\n");
                 for(int i=0;i<cache_size;i++){
                     if(strcmp(filename, cache[i].filename)==0){
                         flag = 1;
@@ -350,7 +349,6 @@ void* Handle_client(void* arg){
                 }
 
                 if (loc.ns_ss_port != -1 || get_file_location(hash, filename, &loc)) {
-                    printf("point B\n");
                     if(flag == 0){
                         printf("Cache miss\n");
                         int temp_idx = cache_indx % cache_size;
@@ -702,9 +700,7 @@ void* Handle_client(void* arg){
             char filename[MAX_FILE_NAME_SIZE]; 
             strcpy(cmd_string,filename);
             int can_w = can_write(hash,filename,username_of_client);
-            printf("hi\n");
             if(can_w == -1){
-                printf("Can write failed %s\n",filename);
                 Packet pkt;
                 pkt.REQ_FLAG = NO_access;
                 char send_buff[BUFFER_SIZE];

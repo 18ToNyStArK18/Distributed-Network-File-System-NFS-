@@ -450,7 +450,6 @@ int can_write(Hashmap *map,char *filename,char *username){
 }
 
 int delete_file_from_user(char *filename, char *username, userdatabase *users){
-    int i = 0;
     int n = users->num_of_users;
     for (int i=0;i<n;i++){
         if(strcmp(username,users->username_arr[i].username)==0){
