@@ -729,6 +729,8 @@ void* Handle_Client (void* arg) {
             copy_LL(fm, prev_fm);
             printf("C\n");
             pthread_rwlock_wrlock(&target->lock);
+            if (target->next) pthread_rwlock_wrlock(&target->next->lock);
+            printf("After target->next->lock\n");
             // actually make the changes to the sentence
             int err = 0;
             for(int i=0;i<changes_indx;i++){
@@ -736,6 +738,7 @@ void* Handle_Client (void* arg) {
                 //func(sentence,word,wordindx) --> iterate until that word indx and update that sentence and check for the delimters and change the sentences linked list
                 if(update_sentence(target, changes[i].words, changes[i].index)==-1){
                     pthread_rwlock_unlock(&target->lock);
+                    if (target->next) pthread_rwlock_unlock(&target->next->lock);
                     // decremet the writers and then change the file pointer to prev state;
                     copy_LL(prev_fm, fm);
                     copy_LL(local, prev_fm);
@@ -751,6 +754,7 @@ void* Handle_Client (void* arg) {
                 continue;
             }
             pthread_rwlock_unlock(&target->lock);
+            if (target->next) pthread_rwlock_unlock(&target->next->lock);
 
             end_write(fm, ws, prev_fm);
             pthread_rwlock_unlock(&fm->for_delete);

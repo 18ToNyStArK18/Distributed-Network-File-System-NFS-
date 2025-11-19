@@ -288,8 +288,15 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
                     if (first_time) {
                         char *newbuf = malloc(insert + i + 2);
                         memcpy(newbuf, sentence, insert);
-                        memcpy(newbuf + insert, words, i + 1);
-                        newbuf[insert + i + 1] = '\0';
+                        if (insert == len - 1) {
+                            newbuf[insert] = ' ';
+                            memcpy(newbuf + insert + 1, words, i + 1);
+                            newbuf[insert + 1 + i + 1] = '\0';
+                        }
+                        else {
+                            memcpy(newbuf + insert, words, i + 1);
+                            newbuf[insert + i + 1] = '\0';
+                        }
 
                         free(cur->text);
                         cur->text = newbuf;
