@@ -346,3 +346,13 @@ int update_sentence(SentenceNode *node, char *words, int word_index) {
 
     return 0;
 }
+void print_file(FileModel *fm){
+
+    SentenceNode *it = fm->head;
+    int i =0;
+    while(it){
+        printf("%d %s\n",i,it->text);
+        it = it->next;
+        i++;
+    }
+}

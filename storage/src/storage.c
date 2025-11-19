@@ -752,7 +752,9 @@ void* Handle_Client (void* arg) {
                     // decremet the writers and then change the file pointer to prev state;
                     send_err(new_socket);   
                     err =1;
+                    break;
                 }
+                print_file(fm);
             }
             if(err)
                 continue;

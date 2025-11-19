@@ -48,3 +48,4 @@ FileModel* get_or_create_file_model(const char *filename);
 WriteSession* start_write(FileModel* fm, int sentence_index);
 void end_write(FileModel *fm, WriteSession *ws);
 int update_sentence(SentenceNode *node, char *words, int word_index);
+void print_file(FileModel *fm);
