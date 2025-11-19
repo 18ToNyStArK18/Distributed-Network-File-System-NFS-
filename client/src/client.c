@@ -183,8 +183,14 @@ int main(){
 
             // Send [length][packet]
             uint32_t net_len = htonl(payload_len);
-            send_all(client_socket, &net_len, sizeof(net_len));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &net_len, sizeof(net_len)) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packets resend the request\n");
+                continue;
+            }
 
             printf(GREEN "LIST request sent successfully\n" NORMAL);
 
@@ -197,11 +203,6 @@ int main(){
                 }
 
                 uint32_t resp_len = ntohl(resp_len_net);
-                if (resp_len > BUFFER_SIZE) {
-                    printf(RED "LIST packet too large\n" NORMAL);
-                    break;
-                }
-
                 char recv_buff[BUFFER_SIZE];
                 if (recv_all(client_socket, recv_buff, resp_len) <= 0) {
                     printf(RED "Error receiving LIST packet\n" NORMAL);
@@ -233,8 +234,15 @@ int main(){
             strcpy(pkt.req_cmd,parsed.cmd[2]);
             int bytes_to_send = Pack(&pkt,buffer);
             uint32_t net_len = htonl(bytes_to_send);
-            send_all(client_socket,&net_len,sizeof(uint32_t));
-            send_all(client_socket,buffer,bytes_to_send);
+            if(send_all(client_socket,&net_len,sizeof(uint32_t))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket,buffer,bytes_to_send) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+
+            }
             printf("Request Sent Successfully\n");            
         }
         else if(strncmp(command_type,"VIEW_REQS",9)==0){
@@ -242,17 +250,29 @@ int main(){
             char send_buffer[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt,send_buffer);
             int net_len = htonl(bytes_to_send);
-            send_all(client_socket,&net_len,sizeof(uint32_t));
-            send_all(client_socket,send_buffer,bytes_to_send);
+            if(send_all(client_socket,&net_len,sizeof(uint32_t))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket,send_buffer,bytes_to_send) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             char recv_buff[BUFFER_SIZE];
             uint32_t flag;
             char *cmd_str;
             while(1){
                 uint32_t recv_net_len;
-                recv_all(client_socket,&recv_net_len,sizeof(uint32_t));
+                if(recv_all(client_socket,&recv_net_len,sizeof(uint32_t)) <= 0){
+                    printf("Error in receiving\n");
+                    break;
+                }
                 uint32_t recv_len = ntohl(recv_net_len);
-                recv_all(client_socket,recv_buff,recv_len);
+                if(recv_all(client_socket,recv_buff,recv_len) <= 0){
+                    printf("Error in receiving\n");
+                    break;
+                }
                 Unpack(recv_buff,&flag,&cmd_str);
                 if(flag == VIEW_REQS_END)
                     break;
@@ -269,15 +289,28 @@ int main(){
                     pkt.REQ_FLAG = Success;
                     bytes_to_send = Pack(&pkt,send_buffer);
                     net_len = htonl(bytes_to_send);
-                    send_all(client_socket,&net_len,sizeof(uint32_t));
-                    send_all(client_socket,send_buffer,bytes_to_send);
+                    if(send_all(client_socket,&net_len,sizeof(uint32_t)) <= 0){
+                        printf("Error in sending the packet\n");
+                        continue;   
+                    }
+                    if(send_all(client_socket,send_buffer,bytes_to_send) <= 0){
+                        printf("Error in sending the packet\n");
+                        continue;
+                    }
                 }
                 else{
                     pkt.REQ_FLAG = Fail;
                     bytes_to_send = Pack(&pkt,send_buffer);
                     net_len = htonl(bytes_to_send);
-                    send_all(client_socket,&net_len,sizeof(uint32_t));
-                    send_all(client_socket,send_buffer,bytes_to_send);
+                    
+                    if(send_all(client_socket,&net_len,sizeof(uint32_t)) <= 0){
+                        printf("Error in sending the packet\n");
+                        continue;
+                    }
+                    if(send_all(client_socket,send_buffer,bytes_to_send) <= 0){
+                        printf("Error in sending the packet\n");
+                        continue;
+                    }
                 }
             }
         }
@@ -304,9 +337,16 @@ int main(){
 
             // send length
             uint32_t net_len = htonl(payload_len);
-            send_all(client_socket, &net_len, sizeof(net_len));
+            if(send_all(client_socket, &net_len, sizeof(net_len)) <= 0){
+                printf("Error in sending the packet send request again\n");
+                continue;
+            }
             // send packet
-            send_all(client_socket, buffer, payload_len);
+            
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet send the request again\n");
+                continue;
+            }
 
             printf(GREEN "VIEW request sent successfully\n" NORMAL);
 
@@ -360,8 +400,14 @@ int main(){
 
             // send [length][packet] to NS
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net)) <= 0){
+                printf("Error in sending the packet send request again\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet send request again\n");
+                continue;
+            }
 
             printf(GREEN "READ request sent successfully to NS\n" NORMAL);
 
@@ -372,7 +418,10 @@ int main(){
                 continue;
             }
             uint32_t resp_len = ntohl(resp_len_net);
-            recv_all(client_socket, buffer, resp_len);
+            if(recv_all(client_socket, buffer, resp_len) <=0){
+                printf(RED "Failed to recv READ response\n" NORMAL);
+                continue;
+            }
 
             uint32_t flag;
             char *cmd_str;
@@ -470,8 +519,15 @@ int main(){
 
             // Send request to Name Server
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net)) <= 0){
+                printf("Error in sending the request send again\n");
+                continue;
+            }
+
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the request send again\n");
+                continue;
+            }
 
             printf(GREEN "INFO request sent to NS\n" NORMAL);
 
@@ -491,7 +547,10 @@ int main(){
                 }
 
                 resp_len = ntohl(resp_len_net);
-                recv_all(client_socket, buffer, resp_len);
+                if(recv_all(client_socket, buffer, resp_len) <= 0){
+                    printf(RED "Connection closed while receiving INFO\n" NORMAL);
+                    break;
+                }
 
                 Unpack(buffer, &flag, &cmd_str);
 
@@ -512,8 +571,14 @@ int main(){
 
             // ---- SEND REQUEST TO NS ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net)) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len)<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN "DELETE request sent to NS\n" NORMAL);
 
@@ -525,7 +590,11 @@ int main(){
             }
 
             uint32_t resp_len = ntohl(resp_len_net);
-            recv_all(client_socket, buffer, resp_len);
+
+            if(recv_all(client_socket, buffer, resp_len)<=0){
+                printf(RED "Failed to receive DELETE response\n" NORMAL);
+                continue;
+            }
 
             uint32_t flag;
             char *cmd_string;
@@ -557,8 +626,14 @@ int main(){
 
             // ---- SEND TO NAME SERVER (with length prefix) ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net)) <=0 ){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN "Packet sent Successfully\n" NORMAL);
 
@@ -627,8 +702,12 @@ int main(){
 
             // ---- SEND TO NAME SERVER (with length prefix) ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net))<=0){
+                printf("Error in sending the packet resend the request\n");
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet resend the request\n");
+            }
 
             printf(GREEN"Packet sent Successfully\n"NORMAL);
 
@@ -669,8 +748,15 @@ int main(){
 
             // ---- SEND packet length + packet ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+
+            if(send_all(client_socket, &len_net, sizeof(len_net))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN"Packet sent Successfully\n"NORMAL);
 
@@ -711,8 +797,14 @@ int main(){
 
             // ---- SEND packet length + packet ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len)<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN"Packet sent Successfully\n"NORMAL);
 
@@ -761,8 +853,14 @@ int main(){
 
             // ---- SEND packet length + data ----
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN"UNDO packet sent successfully\n"NORMAL);
 
@@ -801,8 +899,14 @@ int main(){
             int payload_len = Pack(&pkt, buffer);
 
             uint32_t len_net = htonl(payload_len);
-            send_all(client_socket, &len_net, sizeof(len_net));
-            send_all(client_socket, buffer, payload_len);
+            if(send_all(client_socket, &len_net, sizeof(len_net))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket, buffer, payload_len) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
             printf(GREEN"Packet sent Successfully\n"NORMAL); 
 
@@ -854,8 +958,14 @@ int main(){
             strcpy(Meta.req_cmd,send_buff);
             int bytes_to_send = Pack(&Meta,send_buff);
             int send_net_len = htonl(bytes_to_send);
-            send_all(client_socket,&send_net_len,sizeof(uint32_t));
-            send_all(client_socket,send_buff,bytes_to_send);
+            if(send_all(client_socket,&send_net_len,sizeof(uint32_t))<=0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
+            if(send_all(client_socket,send_buff,bytes_to_send) <= 0){
+                printf("Error in sending the packet resend the request\n");
+                continue;
+            }
 
         }
         else{
