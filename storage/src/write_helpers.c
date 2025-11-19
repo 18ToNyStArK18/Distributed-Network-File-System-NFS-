@@ -367,3 +367,42 @@ void print_file(FileModel *fm){
         i++;
     }
 }
+void delete_file(char *filename){
+
+    extern FileModel *global_models[];
+    extern int global_model_count;
+    extern  pthread_mutex_t global_models_lock;
+
+    int i = 0;
+    pthread_mutex_lock(&global_models_lock);
+    while (i < global_model_count){
+        if(strcmp(global_models[i]->filename,filename)==0)
+            break;
+        i++;
+    }
+    if(i ==  global_model_count){
+        pthread_mutex_unlock(&global_models_lock);
+        return;
+    }
+    FileModel *curr_file = global_models[i];
+    while(i+1<global_model_count){
+        global_models[i] = global_models[i+1];
+        i++;
+    }
+    global_model_count--;
+    pthread_mutex_unlock(&global_models_lock);
+    SentenceNode *it =  curr_file->head,*prev=NULL;
+
+    while(it){
+        prev = it;
+        it = it->next;
+        pthread_rwlock_destroy(&prev->lock);
+        if(prev->text)
+            free(prev->text);
+        free(prev);
+    }
+    pthread_mutex_destroy(&curr_file->list_lock);
+    pthread_mutex_destroy(&curr_file->writer_count_lock);
+    free(curr_file);
+    printf("Removed the file ram successfully\n");
+}

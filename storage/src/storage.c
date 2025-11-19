@@ -426,7 +426,8 @@ void* Handle_NS (void* arg) {
             if (send_all(ns_fd, temp_buffer, bytes_to_send) < 0) {
                 printf(RED "ERROR sending DELETE ack to NS\n" NORMAL);
             }
-
+            //delete that file_pointer also
+            delete_file(filename);
             printf("[SS] DELETE request for '%s' -> %s\n", filename, send_flag == Success ? "Success" : "File Does Not Exist");
         }
         else if (flag == EXEC) {

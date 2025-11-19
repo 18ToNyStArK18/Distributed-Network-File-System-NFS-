@@ -50,3 +50,4 @@ WriteSession* start_write(FileModel* fm, int sentence_index);
 void end_write(FileModel *fm, WriteSession *ws);
 int update_sentence(SentenceNode *node, char *words, int word_index);
 void print_file(FileModel *fm);
+void delete_file(char *filename);
