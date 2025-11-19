@@ -716,6 +716,16 @@ void* Handle_Client (void* arg) {
              
             printf("B\n");
             // copy from fm to prev_fm
+
+            FileModel *local = calloc(1, sizeof(FileModel));
+            strcpy(local->filename, prev_fm->filename);
+            local->head = NULL;
+            local->writer_count = 0;
+            pthread_mutex_init(&local->list_lock, NULL);
+            pthread_mutex_init(&local->writer_count_lock, NULL);
+            pthread_rwlock_init(&local->for_delete, NULL);
+            copy_LL(prev_fm, local);
+
             copy_LL(fm, prev_fm);
             printf("C\n");
             pthread_rwlock_wrlock(&target->lock);
@@ -727,8 +737,11 @@ void* Handle_Client (void* arg) {
                 if(update_sentence(target, changes[i].words, changes[i].index)==-1){
                     pthread_rwlock_unlock(&target->lock);
                     // decremet the writers and then change the file pointer to prev state;
+                    copy_LL(prev_fm, fm);
+                    copy_LL(local, prev_fm);
+                    end_write(fm, ws, prev_fm);
                     send_err(new_socket);   
-                    err =1;
+                    err = 1;
                     break;
                 }
                 print_file(fm);
