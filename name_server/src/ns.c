@@ -855,7 +855,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    //this will make tell the os that i can use the same ip as soon as a program stops using this without any delay
+    //this will make tell the os that i can use the same port as soon as a program stops using this without any delay
     int opt = 1;
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         perror("setsockopt failed");

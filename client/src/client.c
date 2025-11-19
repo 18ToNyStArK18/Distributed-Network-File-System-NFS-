@@ -176,6 +176,10 @@ int main(){
 
         //based on the command_type we need to send packets with the different flags to the NS
         if(strncmp(command_type,"LIST",4)==0){
+            if(parsed.n != 1){
+                printf("Wrong Format\"LIST\"\n");
+                continue;
+            }
             printf("[%s] Requested List\n",user_name);
             pkt.REQ_FLAG = LIST;
 
@@ -227,6 +231,10 @@ int main(){
             }
         }
         else if(strncmp(command_type,"REQ_ACCESS",10)==0){
+            if(parsed.n != 3){
+                printf("Wrong format \"REQ_ACCESS -R/W <filename>\" \n");
+                continue;
+            }
             if(parsed.cmd[1][1]=='R')
                 pkt.REQ_FLAG = REQ_ACCESS_R;
             else
@@ -246,6 +254,10 @@ int main(){
             printf("Request Sent Successfully\n");            
         }
         else if(strncmp(command_type,"VIEW_REQS",9)==0){
+            if(parsed.n  != 1){
+                printf("Wrong format \"VIEW_REQS\"\n");
+                continue;
+            }
             pkt.REQ_FLAG = VIEW_REQS;
             char send_buffer[BUFFER_SIZE];
             int bytes_to_send = Pack(&pkt,send_buffer);
@@ -316,6 +328,10 @@ int main(){
         }
         else if(strncmp(command_type,"VIEW",4)==0){
             //view
+            if(parsed.n != 1 && parsed.n != 2){
+                printf("Wrong format \"VIEW -al | VIEW | VIEW -a | VIEW -l \"\n");
+                continue;
+            }
             printf("[%s] Requested VIEW\n", user_name);
             char view_type[5];
             if(parsed.n != 1)
@@ -393,6 +409,10 @@ int main(){
             printf("---------------------------------\n");
         }
         else if(strncmp(command_type,"READ",4)==0){
+            if(parsed.n == 2){
+                printf("Wrong format \"READ <filename> \"\n");
+                continue;
+            }
             printf("[%s] Requested READ Filename: %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = READ_REQ_NS;
             strcpy(pkt.req_cmd, parsed.cmd[1]);   
@@ -458,6 +478,10 @@ int main(){
                 printf(RED "\nError during file read\n" NORMAL);
         }
         else if(strncmp(command_type,"CREATE",6)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"CREATE <filename> \"\n");
+                continue;
+            }
             //Create a file
             printf("[%s] Requested CREATE Filename : %s\n",user_name,parsed.cmd[1]);
 
@@ -511,6 +535,10 @@ int main(){
             }
         }
         else if(strncmp(command_type,"INFO",4)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"INFO <filename> \"\n");
+                continue;
+            }
             printf("[%s] Requested INFO Filename: %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = INFO;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
@@ -563,6 +591,10 @@ int main(){
             printf("\n---------------------------\n");
         }
         else if(strncmp(command_type,"DELETE",6)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"DELETE <filename> \"\n");
+                continue;
+            }
             printf("[%s] Requested DELETE Filename : %s\n", user_name, parsed.cmd[1]);
             pkt.REQ_FLAG = DELETE;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
@@ -617,6 +649,10 @@ int main(){
             printf(GREEN "File deletion Success\n" NORMAL);
         }
         else if(strncmp(command_type,"STREAM",6)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"STREAM <filename> \"\n");
+                continue;
+            }
             //Stream the file
             printf("[%s] Requested STREAM Filename: %s\n", user_name, parsed.cmd[1]);
 
@@ -686,6 +722,10 @@ int main(){
                 printf(RED "\nError during file STREAM\n" NORMAL);
         }
         else if(strncmp(command_type,"ADDACCESS",9)==0){
+            if(parsed.n != 4){
+                printf("Wrong format \"ADDACCESS -R/W <filename> <username> \"\n");
+                continue;
+            }
             // Adding access to users for read and write perms
             if(strcmp(parsed.cmd[1],"-R")==0){
                 pkt.REQ_FLAG = ADDACCESS_r;
@@ -739,6 +779,10 @@ int main(){
                 printf(RED"Command failed\n"NORMAL);
         }
         else if(strncmp(command_type, "REMACCESS",9)==0){
+            if(parsed.n != 3){
+                printf("Wrong format \"REMACCESS <filename> <username> \"\n");
+                continue;
+            }
             // Remove all access
             pkt.REQ_FLAG = REMACCESS;
             printf("[%s] Requested REMACCESS to Filename: %s for User: %s\n",
@@ -789,6 +833,10 @@ int main(){
 
         }
         else if(strncmp(command_type,"EXEC",4)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"EXEC <filename> \"\n");
+                continue;
+            }
             // execute the commands in that file
             pkt.REQ_FLAG = EXEC;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
@@ -845,8 +893,12 @@ int main(){
             }
         }
         else if(strncmp(command_type,"UNDO",4)==0){
+            if(parsed.n != 2){
+                printf("Wrong format \"UNDO <filename> \"\n");
+                continue;
+            }
             printf("[%s] Requested UNDO Filename: %s\n", user_name, parsed.cmd[1]);
-
+            
             pkt.REQ_FLAG = UNDO;
             strcpy(pkt.req_cmd,parsed.cmd[1]);
             int payload_len = Pack(&pkt, buffer);
@@ -891,6 +943,10 @@ int main(){
                 printf(RED"Command Failed\n"NORMAL);
         }
         else if(strncmp(command_type,"WRITE",5)==0){
+            if(parsed.n != 3){
+                printf("Wrong format \"WRITE <filename> <sentence_number> \"\n");
+                continue;
+            }
             printf("[%s] Requested WRITE Filename: %s\n", user_name, parsed.cmd[1]);
             int line_indx;
             sscanf(parsed.cmd[2],"%d",&line_indx);
