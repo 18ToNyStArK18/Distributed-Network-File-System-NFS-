@@ -552,8 +552,14 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
         strcpy(pkt.req_cmd,temp_buff);
         int bytes_to_send = Pack(&pkt,temp_buff);
         uint32_t net_len = htonl(bytes_to_send);
-        send_all(socket,&net_len,sizeof(net_len));
-        send_all(socket,temp_buff,bytes_to_send);
+        if(send_all(socket,&net_len,sizeof(net_len))<=0){
+            printf("Error in sending the packet\n");
+            return;
+        }
+        if(send_all(socket,temp_buff,bytes_to_send) <= 0){
+            printf("Error in sending the packet\n");
+            return;
+        }
     }
     if(!a){
         int n=users->num_of_users;
@@ -579,9 +585,11 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
 
                     if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                         printf(RED"ERROR\n"NORMAL);
+                        return;
                     }
                     if(send_all(socket,buffer,bytes_to_send) <= 0){
                         printf(RED"ERROR\n"NORMAL);
+                        return;
                     }
                     fl = fl->next;
                 }
@@ -611,9 +619,11 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
 
                 if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 if(send_all(socket,buffer,bytes_to_send) <= 0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 current = current->next;
             }
@@ -627,9 +637,11 @@ void print_view(char *username, userdatabase *users, Hashmap *map, int a, int l,
 
     if(send_all(socket,&net_len,sizeof(net_len)) <=0){
         printf(RED"ERROR\n"NORMAL);
+        return;
     }
     if(send_all(socket,buffer,bytes_to_send) <= 0){
         printf(RED"ERROR\n"NORMAL);
+        return;
     }
     printf("Success\n");
     return;
@@ -669,9 +681,11 @@ void print_info(Hashmap *map, char *filename, int socket){
 
             if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                 printf(RED"ERROR\n"NORMAL);
+                return;
             }
             if(send_all(socket,buffer,bytes_to_send) <= 0){
                 printf(RED"ERROR\n"NORMAL);
+                return;
             }
 
             rw_access *it = current->read;
@@ -683,9 +697,11 @@ void print_info(Hashmap *map, char *filename, int socket){
 
                 if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 if(send_all(socket,buffer,bytes_to_send) <= 0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 it=it->next;
             }
@@ -696,9 +712,11 @@ void print_info(Hashmap *map, char *filename, int socket){
 
             if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                 printf(RED"ERROR\n"NORMAL);
+                return;  
             }
             if(send_all(socket,buffer,bytes_to_send) <= 0){
                 printf(RED"ERROR\n"NORMAL);
+                return;
             }
             it = current->write; 
             while(it){
@@ -709,9 +727,11 @@ void print_info(Hashmap *map, char *filename, int socket){
 
                 if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 if(send_all(socket,buffer,bytes_to_send) <= 0){
                     printf(RED"ERROR\n"NORMAL);
+                    return;
                 }
                 it=it->next;
             }
@@ -722,9 +742,11 @@ void print_info(Hashmap *map, char *filename, int socket){
 
             if(send_all(socket,&net_len,sizeof(net_len)) <=0){
                 printf(RED"ERROR\n"NORMAL);
+                return;
             }
             if(send_all(socket,buffer,bytes_to_send) <= 0){
                 printf(RED"ERROR\n"NORMAL);
+                return;
             }
             return;
         }
@@ -739,9 +761,11 @@ void print_info(Hashmap *map, char *filename, int socket){
     net_len = htonl(bytes_to_send);
     if(send_all(socket,&net_len,sizeof(net_len)) <=0){
         printf(RED"ERROR\n"NORMAL);
+        return;
     }
     if(send_all(socket,buffer,bytes_to_send) <= 0){
         printf(RED"ERROR\n"NORMAL);
+        return;
     }
 }
 void execute_file(char *filename, char *ip, int port, int client_socket){
@@ -768,8 +792,14 @@ void execute_file(char *filename, char *ip, int port, int client_socket){
     char send_buff[BUFFER_SIZE];
     int payload = Pack(&pkt,send_buff);
     uint32_t net_len = htonl(payload);
-    send_all(ss_socket,&net_len,sizeof(net_len));
-    send_all(ss_socket,send_buff,payload);
+    if(send_all(ss_socket,&net_len,sizeof(net_len)) <= 0){
+        printf("Error in sending the packet\n");
+        return;
+    }
+    if(send_all(ss_socket,send_buff,payload) <= 0){
+        printf("Error in sending the packet\n");
+        return;
+    }
 
     printf("Sent EXEC %s to the storage server %s:%d\n",filename,ip,port);
     char recv_buffer[BUFFER_SIZE];
@@ -803,15 +833,28 @@ void execute_file(char *filename, char *ip, int port, int client_socket){
         strcpy(out_pkt.req_cmd,line_buff);
         int bytes_to_send = Pack(&out_pkt,send_buff);
         net_len = htonl(bytes_to_send);
-        send_all(client_socket,&net_len,sizeof(net_len));
-        send_all(client_socket,send_buff,bytes_to_send);
+        if(send_all(client_socket,&net_len,sizeof(net_len))<=0){
+            printf("Error in sending the packet\n");
+            return;
+        }
+        
+        if(send_all(client_socket,send_buff,bytes_to_send) <= 0){
+            printf("Error in sending the packet\n");
+            return;
+        }
     }
     pclose(pipe);
     out_pkt.REQ_FLAG = EXEC_END;
     int bytes_to_send = Pack(&out_pkt,send_buff);
     net_len = htonl(bytes_to_send);
-    send_all(client_socket,&net_len,sizeof(net_len));
-    send_all(client_socket, send_buff, bytes_to_send);
+    if(send_all(client_socket,&net_len,sizeof(net_len))<=0){
+        printf("Error in sending the packet\n");
+        return;
+    }
+    if(send_all(client_socket, send_buff, bytes_to_send)<=0){
+        printf("Error in sending the packet\n");
+        return;
+    }
     return;
 }
 
