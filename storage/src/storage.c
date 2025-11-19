@@ -36,6 +36,8 @@ pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
 FileModel *global_models[MAX_FILES];   // array of pointers
 int global_model_count = 0;            // how many file models currently loaded
 pthread_mutex_t global_models_lock = PTHREAD_MUTEX_INITIALIZER;
+FileModel *prev_models[MAX_FILES];
+int global_prev_count = 0;
 
 int main() {
     int server_fd, client_fd;
@@ -454,6 +456,39 @@ void* Handle_NS (void* arg) {
             send_all(ns_fd,send_buff,payload);
             printf("Sent the entire file\n");
         }
+
+        else if (flag == UNDO) {
+            char filename[MAX_FILE_NAME_SIZE];
+            sprintf(filename,"data/%s",cmd_string);
+            Packet pkt;
+
+            for (int i = 0 ; i < global_model_count ; i++) {
+                if (strcmp(global_models[i]->filename, filename) == 0 ) {
+                    if (prev_models[i]->head) {
+                        pthread_mutex_lock(&global_models_lock);
+                        copy_LL(prev_models[i], global_models[i]);
+                        pthread_mutex_unlock(&global_models_lock);
+                        pkt.REQ_FLAG = Success;
+                    }
+                    else {
+                        pkt.REQ_FLAG = Fail;
+                    }
+
+                    break;
+                }
+            }
+            
+            char send_buff[BUFFER_SIZE];
+            int bytes_to_send = Pack(&pkt, send_buff);
+            uint32_t net_len = htonl(bytes_to_send);
+            if (send_all(ns_fd, &net_len, sizeof(net_len)) <= 0) {
+                printf(RED "Failed to send UNDO Success length\n" NORMAL);
+            } 
+            if (send_all(ns_fd, send_buff, bytes_to_send) <= 0) {
+                printf(RED "Failed to send UNDO Success\n" NORMAL);
+            }
+            printf("Sent UNDO Success\n");
+        }
     }
 
     close(ns_fd);
@@ -673,7 +708,16 @@ void* Handle_Client (void* arg) {
             if(err)
                 continue;
             pthread_rwlock_unlock(&target->lock);
-            end_write(fm,ws);
+            
+            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
+            int temp;
+            sscanf(file, "%s %s", temp_file, &temp);
+            sprintf(prev_filename, "tmp/%s", temp_file);
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename);  
+            // copy from fm to prev_fm
+            copy_LL(fm, prev_fm);
+
+            end_write(fm, ws, prev_fm);
             Packet send_pkt;
             send_pkt.REQ_FLAG = Success;
             char send_buffer[BUFFER_SIZE];

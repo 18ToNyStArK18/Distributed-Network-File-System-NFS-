@@ -75,27 +75,115 @@ FileModel* get_or_create_file_model(const char *filename) {
     return fm;
 }
 
-int save_to_disk(FileModel *fm) {
-    if (!fm) return -1;
-    printf("a\n");
+FileModel* get_or_create_prev_file_model(const char *filename) {
+    extern FileModel *prev_models[];
+    extern int global_prev_count;
+    extern  pthread_mutex_t global_models_lock;
+
+    pthread_mutex_lock(&global_models_lock);
+    for (int i = 0 ; i < global_prev_count ; i++) {
+        if (strcmp(prev_models[i]->filename, filename) == 0) {
+            FileModel *fm = prev_models[i];
+            pthread_mutex_unlock(&global_models_lock);
+            return fm;
+        }
+    }
+
+    FileModel *fm = calloc(1, sizeof(FileModel));
+    strcpy(fm->filename, filename);
+    fm->head = NULL;
+    fm->writer_count = 0;
+    pthread_mutex_init(&fm->list_lock, NULL);
+    pthread_mutex_init(&fm->writer_count_lock, NULL);
+
+    // TO ADD: load the original file content into LL (can add in WRITE also, let's see)
+    FILE *fp = fopen(filename, "r");
+    if (fp) {
+        printf("file opened\n");
+        SentenceNode *tail = NULL;
+        char *sentence = NULL;
+        size_t sent_cap = 0, sent_len =0;
+
+        int c;
+        while ((c = fgetc(fp)) != EOF) {
+            if (sent_len + 2 >= sent_cap) {
+                sent_cap = (sent_cap == 0 ? 64 : sent_cap * 2);
+                sentence = realloc(sentence, sent_cap);
+            }
+
+            sentence[sent_len++] = c;
+
+            if (c == '.' || c == '?' || c == '!' || c == '\n') {
+                sentence[sent_len] = '\0';
+
+                SentenceNode *node = calloc(1, sizeof(SentenceNode));
+                node->text = strdup(sentence);
+                pthread_rwlock_init(&node->lock, NULL);
+                node->next = NULL;
+
+                if (!fm->head) fm->head = node;
+                else tail->next = node;
+
+                tail = node;
+
+                sent_len = 0;
+            }
+        }
+
+        if (sent_len > 0) {
+            sentence[sent_len] = '\0';
+
+            SentenceNode *node = calloc(1, sizeof(SentenceNode));
+            node->text = strdup(sentence);
+            pthread_rwlock_init(&node->lock, NULL);
+            node->next = NULL;
+            if (!fm->head) fm->head = node;
+            else tail->next = node;
+        }
+
+        free(sentence);
+        fclose(fp);
+    }
+
+    prev_models[global_prev_count++] = fm;
+    pthread_mutex_unlock(&global_models_lock);
+    return fm;
+}
+
+int save_to_disk(FileModel *fm, FileModel *prev) {
+    if (!fm || !prev) return -1;
+
+    pthread_mutex_lock(&prev->list_lock);
+    FILE *fp = fopen(prev->filename, "w");
+    if (!fp) {
+        pthread_mutex_unlock(&prev->list_lock);
+        return -1;
+    }
+    SentenceNode* current = prev->head;
+    while (current) {
+        if (current->text) {
+            fprintf(fp, "%s", current->text);
+        }
+        current = current->next;
+    }
+    fclose(fp);
+    pthread_mutex_unlock(&prev->list_lock);
+
     pthread_mutex_lock(&fm->list_lock); // optional acc to gpt, have to check
-    printf("b\n");
-    FILE* fp = fopen(fm->filename, "w");
-    printf("c\n");
+    fp = fopen(fm->filename, "w");
     if (!fp) {
         pthread_mutex_unlock(&fm->list_lock);
-        printf("d\n");
         return -1;
     }
     SentenceNode *cur = fm->head;
     while (cur) {
-        printf("e\n");
         if(cur->text) 
             fprintf(fp, "%s", cur->text);
         cur = cur->next;
     }
     fclose(fp);
-    printf("f\n");
+
+    
     pthread_mutex_unlock(&fm->list_lock);
     return 0;
 }
@@ -115,7 +203,7 @@ WriteSession* start_write(FileModel* fm, int sentence_index) {
     return ws;
 }
 
-void end_write(FileModel *fm, WriteSession *ws) {
+void end_write(FileModel *fm, WriteSession *ws, FileModel *prev) {
     if (!ws) return;
     if(ws->sentence_text) free(ws->sentence_text);
     free(ws);
@@ -125,7 +213,7 @@ void end_write(FileModel *fm, WriteSession *ws) {
     int writers_left = fm->writer_count;
     pthread_mutex_unlock(&fm->writer_count_lock);
     if (writers_left == 0) {
-        save_to_disk(fm);
+        save_to_disk(fm, prev);
     }
 }
 
@@ -405,4 +493,52 @@ void delete_file(char *filename){
     pthread_mutex_destroy(&curr_file->writer_count_lock);
     free(curr_file);
     printf("Removed the file ram successfully\n");
+}
+
+SentenceNode* clone_list(SentenceNode *head) {
+    if (!head) return NULL;
+
+    SentenceNode *new_head = NULL;
+    SentenceNode *tail = NULL;
+
+    while (head) {
+        SentenceNode *node = malloc(sizeof(SentenceNode));
+        node->text = strdup(head->text);
+        pthread_rwlock_init(&node->lock, NULL);
+        node->next = NULL;
+
+        if (!new_head)
+            new_head = node;
+        else
+            tail->next = node;
+
+        tail = node;
+        head = head->next;
+    }
+
+    return new_head;
+}
+
+void free_list(SentenceNode *head) {
+    while (head) {
+        SentenceNode *next = head->next;
+        pthread_rwlock_destroy(&head->lock);
+        free(head->text);
+        free(head);
+        head = next;
+    }
+}
+
+void copy_LL(FileModel* src, FileModel* dst) {
+    pthread_mutex_lock(&src->list_lock);
+    pthread_mutex_lock(&dst->list_lock);
+
+    // Free old list in dst
+    free_list(dst->head);
+
+    // Deep clone from src
+    dst->head = clone_list(src->head);
+
+    pthread_mutex_unlock(&dst->list_lock);
+    pthread_mutex_unlock(&src->list_lock);
 }

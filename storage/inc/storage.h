@@ -47,7 +47,9 @@ typedef struct {
 
 FileModel* get_or_create_file_model(const char *filename);
 WriteSession* start_write(FileModel* fm, int sentence_index);
-void end_write(FileModel *fm, WriteSession *ws);
+void end_write(FileModel *fm, WriteSession *ws, FileModel *prev);
 int update_sentence(SentenceNode *node, char *words, int word_index);
 void print_file(FileModel *fm);
 void delete_file(char *filename);
+FileModel* get_or_create_prev_file_model(const char *filename);
+void copy_LL(FileModel* src, FileModel* dst);
