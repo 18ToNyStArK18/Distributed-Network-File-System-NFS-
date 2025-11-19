@@ -550,6 +550,12 @@ void* Handle_Client (void* arg) {
                 printf(RED "[SS] failed to load file model in READ\n" NORMAL);
                 continue;
             }
+            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
+            int temp;
+            sscanf(file, "%s %d", temp_file, &temp);
+            sprintf(prev_filename, "tmp/%s", temp_file);
+
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename); 
 
             pthread_mutex_lock(&fm->list_lock);
 
@@ -647,8 +653,13 @@ void* Handle_Client (void* arg) {
                 strcpy(changes[changes_indx++].words,words);
                 // save all of this in an array of structs so that it can be used to change the sentence later
             }
+            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
+            int temp;
+            sscanf(file, "%s %d", temp_file, &temp);
+            sprintf(prev_filename, "tmp/%s", temp_file);
 
             FileModel *fm = get_or_create_file_model(write_filename);
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename); 
             printf("A\n");
             if (!fm) {
                 printf(RED "[SS] ERROR: Failed to load the file model\n" NORMAL);
@@ -695,11 +706,7 @@ void* Handle_Client (void* arg) {
                 send_err(new_socket);
                 continue;
             }
-            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
-            int temp;
-            sscanf(file, "%s %d", temp_file, &temp);
-            sprintf(prev_filename, "tmp/%s", temp_file);
-            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename);  
+             
             printf("B\n");
             // copy from fm to prev_fm
             copy_LL(fm, prev_fm);
@@ -741,6 +748,13 @@ void* Handle_Client (void* arg) {
                 printf(RED "[SS] failed to load file model in READ\n" NORMAL);
                 continue;
             }
+
+            char temp_file[MAX_FILE_NAME_SIZE], prev_filename[MAX_FILE_NAME_SIZE + 10];
+            int temp;
+            sscanf(file, "%s %d", temp_file, &temp);
+            sprintf(prev_filename, "tmp/%s", temp_file);
+
+            FileModel* prev_fm = get_or_create_prev_file_model(prev_filename); 
 
             pthread_mutex_lock(&fm->list_lock);
 
