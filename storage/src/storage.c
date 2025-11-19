@@ -29,10 +29,8 @@ int send_err(int sock){
 
 }
 
-
 pthread_mutex_t FILES_C_AND_W = PTHREAD_MUTEX_INITIALIZER;
 
-// ========= GLOBAL FILE MODEL TABLE =========
 FileModel *global_models[MAX_FILES];   // array of pointers
 int global_model_count = 0;            // how many file models currently loaded
 pthread_mutex_t global_models_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -45,7 +43,6 @@ int main() {
     socklen_t client_len = sizeof(client_addr);
     socklen_t ns_len = sizeof(ns_addr);
 
-    /************** 1. Create server socket **************/
     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -56,14 +53,12 @@ int main() {
     ns_addr.sin_addr.s_addr = INADDR_ANY;   // Any local interface
     ns_addr.sin_port = 0;                   // OS picks a free port
 
-    /************** 2. Bind **************/
     if (bind(server_fd, (struct sockaddr *)&ns_addr, sizeof(ns_addr)) < 0) {
         perror("bind failed");
         close(server_fd);
         exit(EXIT_FAILURE);
     }
 
-    /************** 3. Find assigned IP + port **************/
     if (getsockname(server_fd, (struct sockaddr *)&ns_addr, &ns_len) < 0) {
         perror("getsockname failed");
         exit(EXIT_FAILURE);
@@ -74,7 +69,6 @@ int main() {
 
     listen(server_fd, MAX_CONNS);
 
-    /************** 1. Create client socket **************/
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         perror("socket failed");
         exit(EXIT_FAILURE);
@@ -85,14 +79,12 @@ int main() {
     client_addr.sin_addr.s_addr = INADDR_ANY;   // Any local interface
     client_addr.sin_port = 0;                   // OS picks a free port
 
-    /************** 2. Bind **************/
     if (bind(client_fd, (struct sockaddr *)&client_addr, sizeof(client_addr)) < 0) {
         perror("bind failed");
         close(client_fd);
         exit(EXIT_FAILURE);
     }
 
-    /************** 3. Find assigned IP + port **************/
     if (getsockname(client_fd, (struct sockaddr *)&client_addr, &client_len) < 0) {
         perror("getsockname failed");
         exit(EXIT_FAILURE);
@@ -103,8 +95,6 @@ int main() {
 
     listen(client_fd, MAX_CONNS);
 
-
-    /************** 4. Register with Name Server **************/
     int ns_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (ns_sock < 0) {
         perror("NS socket failed");
@@ -148,8 +138,13 @@ int main() {
     int bytes_to_send = Pack(&pkt, buffer);
 
     uint32_t len_net = htonl(bytes_to_send);
-    send_all(ns_sock, &len_net, sizeof(len_net));
-    send_all(ns_sock, buffer, bytes_to_send);
+    if(send_all(ns_sock, &len_net, sizeof(len_net)) <= 0) {
+        printf(RED "Failed to send REG length\n" NORMAL);
+        return 0;
+    }
+    if(send_all(ns_sock, buffer, bytes_to_send) <= 0) {
+        printf(RED "Failed to send REG\n" NORMAL);
+    }
 
     printf("Sent registration to Name Server: %s\n", reg_msg);
     
@@ -171,8 +166,12 @@ int main() {
             strcpy(pkt_f.req_cmd,dir_entry->d_name);
             bytes_to_send = Pack(&pkt_f,buffer);
             len_net = htonl(bytes_to_send);
-            send_all(ns_sock , &len_net, sizeof(uint32_t));
-            send_all(ns_sock, buffer , bytes_to_send);
+            if(send_all(ns_sock , &len_net, sizeof(uint32_t)) <= 0) {
+                printf(RED "Failed to send SS_FILES length\n" NORMAL);
+            }
+            if(send_all(ns_sock, buffer , bytes_to_send) <= 0) {
+                printf(RED "Failed to send SS_FILES\n" NORMAL);
+            }
             printf("%s\n", dir_entry->d_name);
         }
     }
@@ -180,8 +179,14 @@ int main() {
     pkt.REQ_FLAG = ss_files_end;
     bytes_to_send = Pack(&pkt,buffer);
     len_net = htonl(bytes_to_send);
-    send_all(ns_sock , &len_net, sizeof(uint32_t));
-    send_all(ns_sock, buffer , bytes_to_send);
+    if(send_all(ns_sock , &len_net, sizeof(uint32_t)) <= 0) {
+        printf(RED "Failed to send SS_FILES_END length\n");
+        return 0;
+    }
+    if(send_all(ns_sock, buffer , bytes_to_send) <= 0 ) {
+        printf(RED "Failed to send SS_FILES_END\n");
+        return 0;
+    }
     printf("All files sent Succesfully\n");
     uint32_t ack_len_net;
     if (recv_all(ns_sock, &ack_len_net, sizeof(ack_len_net)) <= 0) {
@@ -192,7 +197,11 @@ int main() {
     uint32_t ack_len = ntohl(ack_len_net);
 
     char recv_buff[BUFFER_SIZE];
-    recv_all(ns_sock, recv_buff, ack_len);
+    if(recv_all(ns_sock, recv_buff, ack_len) <= 0) {
+        printf(RED "Error receiving response\n" NORMAL);
+        close(ns_sock);
+        return 0;
+    }
     printf("Server says: %s\n", recv_buff);
 
     close(ns_sock);
@@ -446,14 +455,26 @@ void* Handle_NS (void* arg) {
                 strcpy(pkt.req_cmd,line_buffer);
                 payload = Pack(&pkt,send_buff);
                 uint32_t net_len = htonl(payload);
-                send_all(ns_fd,&net_len,sizeof(net_len));
-                send_all(ns_fd,send_buff,payload);
+                if (send_all(ns_fd,&net_len,sizeof(net_len)) <= 0) {
+                    printf(RED "Failed to send EXEC_DATA length\n" NORMAL);
+                    continue;
+                }
+                if (send_all(ns_fd,send_buff,payload) <= 0 ) {
+                    printf(RED "Failed to send EXEC_DATA\n" NORMAL);
+                    continue;
+                }
             }
             pkt.REQ_FLAG = EXEC_END;
             payload = Pack(&pkt,send_buff);
             uint32_t net_len = htonl(payload);
-            send_all(ns_fd,&net_len,sizeof(net_len));
-            send_all(ns_fd,send_buff,payload);
+            if (send_all(ns_fd,&net_len,sizeof(net_len)) <= 0) {
+                printf(RED "Failed to send EXEC_END length\n" NORMAL);
+                continue;
+            }
+            if(send_all(ns_fd,send_buff,payload) <= 0) {
+                printf(RED "Failed to send EXEC_END\n" NORMAL);
+                continue;
+            }
             printf("Sent the entire file\n");
         }
 
@@ -488,9 +509,11 @@ void* Handle_NS (void* arg) {
             uint32_t net_len = htonl(bytes_to_send);
             if (send_all(ns_fd, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "Failed to send UNDO Success length\n" NORMAL);
+                continue;
             } 
             if (send_all(ns_fd, send_buff, bytes_to_send) <= 0) {
                 printf(RED "Failed to send UNDO Success\n" NORMAL);
+                continue;
             }
             printf("Sent UNDO Success\n");
         }
@@ -615,8 +638,12 @@ void* Handle_Client (void* arg) {
 
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
                 printf(RED "ERROR: Failed to send READ length.\n" NORMAL);
+                continue;
             }
-            send_all(new_socket, end_buff, end_len);
+            if(send_all(new_socket, end_buff, end_len) <= 0) {
+                printf(RED "Failed to send READ\n" NORMAL);
+                continue;
+            }
 
             printf("Sent READ_END\n");
         }
@@ -761,8 +788,14 @@ void* Handle_Client (void* arg) {
             char send_buffer[BUFFER_SIZE];
             int bytes_to_send = Pack(&send_pkt,send_buffer);
             uint32_t net_len2 = htonl(bytes_to_send);
-            send_all(new_socket,&net_len2,sizeof(uint32_t));
-            send_all(new_socket,send_buffer,bytes_to_send);
+            if(send_all(new_socket,&net_len2,sizeof(uint32_t)) <= 0){
+                printf(RED "Failed to send WRITE_END length\n" NORMAL);
+                continue;
+            }
+            if(send_all(new_socket,send_buffer,bytes_to_send) <= 0) {
+                printf(RED "Failed to send WRITE_END\n" NORMAL);
+                continue;
+            }
             //end write to update the number of writer on this file
             printf("update\n");
         }
@@ -850,9 +883,13 @@ void* Handle_Client (void* arg) {
             uint32_t net_len = htonl(end_len);
 
             if (send_all(new_socket, &net_len, sizeof(net_len)) <= 0) {
-                printf(RED "ERROR: Failed to send STREAM length.\n" NORMAL);
+                printf(RED "ERROR: Failed to send STREAM_END length.\n" NORMAL);
+                continue;
             }
-            send_all(new_socket, end_buff, end_len);
+            if (send_all(new_socket, end_buff, end_len) <= 0) {
+                printf(RED "ERROR: Failed to send STREAM_END.\n" NORMAL);
+                continue;
+            }
 
             printf("Sent STREAM_END\n");
         }
