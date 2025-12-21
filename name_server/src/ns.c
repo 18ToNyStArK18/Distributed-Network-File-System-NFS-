@@ -50,7 +50,7 @@ void* Heartbeat_listener_thread(void* arg) {
         exit(EXIT_FAILURE);
     }
 
-    printf(GREEN "[Monitor] Heartbeat Listener started on UDP Port %d\n" NORMAL, HEARTBEAT_PORT);
+    printf(GREEN "Heartbeat Listener started on UDP Port %d\n" NORMAL, HEARTBEAT_PORT);
 
     char buffer[1024];
     socklen_t len = sizeof(cliaddr);
