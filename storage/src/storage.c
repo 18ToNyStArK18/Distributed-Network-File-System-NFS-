@@ -4,9 +4,52 @@
 #include "../inc/locks.h"
 #include <pthread.h>
 #include <stdint.h>
-#include <time.h>
 #include <assert.h>
 
+#define NS_HEARTBEAT_PORT 5555
+
+struct HeartbeatArgs {
+    char ns_ip[INET_ADDRSTRLEN];
+    int my_client_port;
+};
+
+void* Send_Heartbeat_Thread(void* arg) {
+    struct HeartbeatArgs* args = (struct HeartbeatArgs*)arg;
+    int sockfd;
+    struct sockaddr_in servaddr;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Heartbeat sender socket failed");
+        return NULL;
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(NS_HEARTBEAT_PORT);
+    // Convert NS IP string to address
+    if (inet_pton(AF_INET, args->ns_ip, &servaddr.sin_addr) <= 0) {
+        perror("Invalid NS IP for heartbeat");
+        return NULL;
+    }
+
+    char message[100];
+    // We send our Port so NS knows exactly who we are
+    snprintf(message, sizeof(message), "SS_PORT_%d", args->my_client_port);
+
+    printf("[SS] Starting Heartbeat to %s:%d...\n", args->ns_ip, NS_HEARTBEAT_PORT);
+
+    while(1) {
+        sendto(sockfd, (const char *)message, strlen(message), 0, 
+               (struct sockaddr *)&servaddr, sizeof(servaddr));
+        
+        // Sleep for 2 seconds
+        sleep(2);
+    }
+    close(sockfd);
+    free(args);
+    return NULL;
+}
+// -------------------------
 int recv_all(int sock, void* buffer, int length);
 int send_all(int sock, const void* buffer, int length);
 void* NS_listener_thread (void *arg);
@@ -215,7 +258,13 @@ int main() {
     pthread_detach(client_thread);
 
     printf("[SS] Threads launched: NS & Client listeners active.\n");
+    pthread_t hb_thread;
+    struct HeartbeatArgs* hb_args = malloc(sizeof(struct HeartbeatArgs));
+    strcpy(hb_args->ns_ip, NS_IP); // NS_IP is defined in ip.h
+    hb_args->my_client_port = client_port; // This variable exists in your main
 
+    pthread_create(&hb_thread, NULL, Send_Heartbeat_Thread, (void*)hb_args);
+    pthread_detach(hb_thread);
     // main thread can now sleep forever
     while(1) sleep(1000);
 

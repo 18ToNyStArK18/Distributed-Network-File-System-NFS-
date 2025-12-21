@@ -19,7 +19,8 @@ Distributed-Network-File-System-NFS/
 ├── storage/                 # Storage Server logic
 │   ├── src/                 # Source code (storage.c, write_helpers.c)
 │   ├── inc/                 # Header files (storage.h, locks.h)
-│   ├── tmp/                 # Temporary storage for file operations
+│   ├── data/                # Current state of the file is stored here
+│   ├── tmp/                 # Previous state of the file used in undo
 │   └── Makefile             # Build configuration for Storage Server
 └── cmn_inc.h                # Common definitions used across all modules
 ```

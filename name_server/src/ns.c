@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define BUFFER_SIZE 1024
+#define HEARTBEAT_PORT 5555
 userdatabase users;
 int ns_port, client_port; // ns_port is for ss and ns connection, client_port is for client and ss connection
 char ss_ip[40];
@@ -26,6 +27,43 @@ typedef struct{
     char client_ip[INET_ADDRSTRLEN];
 } client_args_t;
 
+void* Heartbeat_listener_thread(void* arg) {
+    int sockfd;
+    struct sockaddr_in servaddr, cliaddr;
+
+    // Create UDP Socket
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+        perror("Heartbeat socket creation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&cliaddr, 0, sizeof(cliaddr));
+
+    // Bind to the Heartbeat Port
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_port = htons(HEARTBEAT_PORT);
+
+    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+        perror("Heartbeat bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    printf(GREEN "[Monitor] Heartbeat Listener started on UDP Port %d\n" NORMAL, HEARTBEAT_PORT);
+
+    char buffer[1024];
+    socklen_t len = sizeof(cliaddr);
+
+    while (1) {
+        int n = recvfrom(sockfd, (char *)buffer, 1024, MSG_WAITALL, 
+                        (struct sockaddr *)&cliaddr, &len);
+        buffer[n] = '\0';
+        
+        printf(GREEN "Heartbeat received from: %s\n" NORMAL, buffer);
+    }
+}
+// -------------------------
 void Unpack(char* buffer, uint32_t* flag, char** cmd_string) {
     char* ptr = buffer;
 
@@ -807,6 +845,8 @@ void* Handle_client(void* arg){
             } else {
                 printf(GREEN "[NS] Sent SS IP + Port info successfully\n" NORMAL);
             }
+            if(pkt.REQ_FLAG == NO_access || pkt.REQ_FLAG == FILE_DOESNT_EXIST)
+                continue;
             char recv_buff[BUFFER_SIZE];
             uint32_t recv_len;
             recv_all(new_socket,&recv_len,sizeof(uint32_t));
@@ -909,11 +949,12 @@ int main() {
     printf("Server listening for clients on %s:%d...\n", NS_IP, NS_PORT);
     printf("Server listening for storage servers on %s:%d...\n", NS_IP, NS_PORT_SS);
 
-    pthread_t client_thread, storage_thread;
+    pthread_t client_thread, storage_thread,heartbeat_thread;
 
     pthread_create(&client_thread, NULL, Client_listener_thread, &server_fd);
     pthread_create(&storage_thread, NULL, Storage_listener_thread, &storage_fd);
-
+    pthread_create(&heartbeat_thread, NULL, Heartbeat_listener_thread, NULL);
+    pthread_detach(heartbeat_thread);
     pthread_detach(client_thread);
     pthread_detach(storage_thread);
 
