@@ -78,6 +78,9 @@ Launch the client application. You will be prompted for a username.
 ```bash
 ./client/client
 ```
+### 5. Future Improvements
+
+Implement the replication logic for the storage servers so that if one breaks the other will be used
 
 ## 📝 Command Reference
 
