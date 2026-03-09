@@ -4,7 +4,7 @@ This is a robust, distributed document collaboration system designed to simulate
 
 The system is unique for its **sentence-level concurrency control**, allowing multiple users to edit different parts of the same text file simultaneously without locking the entire document.
 
-## 📂 Project Structure
+##  Project Structure
 
 ```text
 Distributed-Network-File-System-NFS/
@@ -25,7 +25,7 @@ Distributed-Network-File-System-NFS/
 └── cmn_inc.h                # Common definitions used across all modules
 ```
 
-## 🚀 Key Features
+## Key Features
 
 ### 1. Distributed Architecture
 
@@ -45,7 +45,7 @@ Distributed-Network-File-System-NFS/
 - **Remote Execution**: `EXEC <file>` executes shell commands stored within a file on the server.
 - **Undo**: `UNDO <file>` reverts the last change made to a file.
 
-## 🛠️ Build & Run Instructions
+## Build & Run Instructions
 
 **Prerequisites**: Linux/Unix environment with GCC and Make.
 
@@ -82,7 +82,7 @@ Launch the client application. You will be prompted for a username.
 
 Implement the replication logic for the storage servers so that if one breaks the other will be used
 
-## 📝 Command Reference
+##  Command Reference
 
 | Command | Description | Example |
 |---------|-------------|---------|
@@ -98,7 +98,7 @@ Implement the replication logic for the storage servers so that if one breaks th
 | EXEC | Executes file content as shell script. | `EXEC script.txt` |
 | UNDO | Reverts the last modification. | `UNDO doc.txt` |
 
-## ⚙️ Technical Details
+##  Technical Details
 
 - **Communication**: Custom Application Layer Protocol over TCP/IP.
 - **Data Structures**: Tries/Hashmaps (in NM) for O(1) file lookups.
